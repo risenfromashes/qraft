@@ -1,0 +1,110 @@
+{
+  "2": {
+    "dimensions": {
+      "C1": 12,
+      "G": 15,
+      "C2": 23,
+      "T": 2
+    },
+    "degree_profiles": {
+      "C1": [
+        1,
+        2,
+        3,
+        4,
+        2
+      ],
+      "G": [
+        1,
+        2,
+        6,
+        4,
+        2
+      ],
+      "C2": [
+        1,
+        2,
+        10,
+        8,
+        2
+      ],
+      "T": [
+        0,
+        0,
+        0,
+        0,
+        2
+      ]
+    },
+    "all_fragment_projection_checks": 883,
+    "unit_column_witnesses": 52,
+    "weighted_term_checks": 48,
+    "direct_subset_checks": 41,
+    "transition_nonzeros": {
+      "toG": 12,
+      "sib": 58,
+      "up_open": 19,
+      "up_closed": 15,
+      "cat": 139,
+      "cap": 66,
+      "close": 2
+    },
+    "transition_coefficients": [
+      1
+    ]
+  },
+  "4": {
+    "dimensions": {
+      "C1": 26,
+      "G": 32,
+      "C2": 56,
+      "T": 3
+    },
+    "degree_profiles": {
+      "C1": [
+        1,
+        4,
+        6,
+        12,
+        3
+      ],
+      "G": [
+        1,
+        4,
+        12,
+        12,
+        3
+      ],
+      "C2": [
+        1,
+        4,
+        24,
+        24,
+        3
+      ],
+      "T": [
+        0,
+        0,
+        0,
+        0,
+        3
+      ]
+    },
+    "all_fragment_projection_checks": 9276,
+    "unit_column_witnesses": 117,
+    "weighted_term_checks": 48,
+    "direct_subset_checks": 46,
+    "transition_nonzeros": {
+      "toG": 26,
+      "sib": 141,
+      "up_open": 44,
+      "up_closed": 32,
+      "cat": 411,
+      "cap": 177,
+      "close": 3
+    },
+    "transition_coefficients": [
+      1
+    ]
+  }
+}
