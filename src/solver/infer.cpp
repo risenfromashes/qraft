@@ -329,6 +329,9 @@ void write_stats_json(const Options& options, const SolverContext& ctx) {
   const std::shared_ptr<const BipartitionTestIndex>& index =
       ctx.bipartition_test_index;
   out << "{\n";
+  if (!options.program_version.empty()) {
+    out << "  \"qraft_version\": \"" << options.program_version << "\",\n";
+  }
   out << "  \"genes\": " << base_genes(ctx).size() << ",\n";
   out << "  \"taxa\": " << context_taxa(ctx).size() << ",\n";
   out << "  \"workers\": " << ctx.workers << ",\n";
@@ -406,14 +409,7 @@ namespace qraft {
 /// Runs the QRAFT pipeline: indexes the genes, builds or reads the starting
 /// tree, then runs the recursive divide and regraft and NNI refinement, or
 /// under --no-divide refines the starting tree directly.
-SpeciesTree infer_species_tree(std::vector<GeneTree> genes, const Options& options) {
-  if (genes.empty()) {
-    throw std::invalid_argument("at least one gene tree is required");
-  }
-  if (genes.size() >
-      static_cast<std::size_t>(std::numeric_limits<int>::max())) {
-    throw std::length_error("gene count exceeds the integer-indexed domain");
-  }
+void validate_options(const Options& options) {
   if (!std::isfinite(options.bipartition_test.coefficient) ||
       options.bipartition_test.coefficient <= 0.0 ||
       !std::isfinite(options.bipartition_test.crossover) ||
@@ -432,6 +428,17 @@ SpeciesTree infer_species_tree(std::vector<GeneTree> genes, const Options& optio
         "SPR refinement requires positive reads, candidates and rounds and "
         "a minimum clade of at least 2 taxa");
   }
+}
+
+SpeciesTree infer_species_tree(std::vector<GeneTree> genes, const Options& options) {
+  if (genes.empty()) {
+    throw std::invalid_argument("at least one gene tree is required");
+  }
+  if (genes.size() >
+      static_cast<std::size_t>(std::numeric_limits<int>::max())) {
+    throw std::length_error("gene count exceeds the integer-indexed domain");
+  }
+  validate_options(options);
   // The worker count is capped by the input's physical nodes, so executor
   // startup costs no more than indexing the input.
   std::size_t physical_nodes = 0;

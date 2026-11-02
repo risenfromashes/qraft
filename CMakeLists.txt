@@ -178,8 +178,45 @@ elseif(QRAFT_USE_JEMALLOC AND NOT QRAFT_ALL_COMPILER_FLAGS MATCHES "sanitize")
   endif()
 endif()
 
-add_executable(qraft src/cli/main.cpp)
+add_executable(qraft
+  src/cli/main.cpp
+  src/cli/cli_options.cpp
+  src/cli/gene_input.cpp)
 target_link_libraries(qraft PRIVATE qraft_lib)
+
+# qraft --version: the version, the git commit and the build options, written
+# at build time so the commit stays current (cmake/WriteVersion.cmake).
+if(QRAFT_STATIC_EXECUTABLE)
+  set(QRAFT_BUILD_LINKAGE "static")
+else()
+  set(QRAFT_BUILD_LINKAGE "dynamic")
+endif()
+if(QRAFT_JEMALLOC_STATIC_ARCHIVE OR QRAFT_JEMALLOC_LIBRARY)
+  set(QRAFT_BUILD_ALLOCATOR "jemalloc")
+else()
+  set(QRAFT_BUILD_ALLOCATOR "system allocator")
+endif()
+if(QRAFT_NATIVE_OPTIMIZATIONS)
+  set(QRAFT_BUILD_CPU "tuned for the build machine (-march=native)")
+else()
+  set(QRAFT_BUILD_CPU "generic ${CMAKE_SYSTEM_PROCESSOR}")
+endif()
+set(QRAFT_BUILD_INFO
+  "${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}, ${CMAKE_BUILD_TYPE}, ${CMAKE_SYSTEM_NAME} ${CMAKE_SYSTEM_PROCESSOR}, ${QRAFT_BUILD_LINKAGE}, ${QRAFT_BUILD_ALLOCATOR}, ${QRAFT_BUILD_CPU}")
+set(QRAFT_VERSION_HEADER "${CMAKE_CURRENT_BINARY_DIR}/generated/version/qraft_version.hpp")
+add_custom_target(qraft_version_header
+  COMMAND ${CMAKE_COMMAND}
+          -DQRAFT_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}
+          -DQRAFT_OUTPUT=${QRAFT_VERSION_HEADER}
+          -DQRAFT_VERSION=${PROJECT_VERSION}
+          "-DQRAFT_BUILD_INFO=${QRAFT_BUILD_INFO}"
+          -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/WriteVersion.cmake
+  BYPRODUCTS ${QRAFT_VERSION_HEADER}
+  COMMENT "Stamping the qraft version"
+  VERBATIM)
+add_dependencies(qraft qraft_version_header)
+target_include_directories(qraft PRIVATE
+  "${CMAKE_CURRENT_BINARY_DIR}/generated/version")
 if(QRAFT_STATIC_EXECUTABLE)
   include(CheckLinkerFlag)
   check_linker_flag(CXX "-static" QRAFT_LINKER_SUPPORTS_FULL_STATIC)
@@ -316,6 +353,15 @@ if(QRAFT_BUILD_TESTS)
             -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cli_spr.cmake)
   set_tests_properties(qraft.cli_spr PROPERTIES
     LABELS "regression;determinism;dispatch" TIMEOUT 120)
+  add_test(
+    NAME qraft.cli_front
+    COMMAND ${CMAKE_COMMAND}
+            -DQRAFT_CLI=$<TARGET_FILE:qraft>
+            -DQRAFT_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}
+            -DQRAFT_CLI_TEST_DIR=${CMAKE_CURRENT_BINARY_DIR}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cli_front.cmake)
+  set_tests_properties(qraft.cli_front PROPERTIES
+    LABELS "regression;dispatch" TIMEOUT 600)
 
   add_test(
     NAME qraft.cli_ablations

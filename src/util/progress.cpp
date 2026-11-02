@@ -281,6 +281,16 @@ void render_progress_locked(ProgressState& state, bool force) {
     if (state.mre_stage == "count") {
       out << " count=" << state.mre_done_genes << "/"
           << state.mre_total_genes << " genes";
+      // The count stage has a known total, so its remaining time can be
+      // estimated from the genes done so far.
+      if (state.mre_done_genes > 0 &&
+          state.mre_done_genes < state.mre_total_genes) {
+        const double remaining =
+            elapsed *
+            static_cast<double>(state.mre_total_genes - state.mre_done_genes) /
+            static_cast<double>(state.mre_done_genes);
+        out << " eta=" << std::setprecision(1) << remaining << "s";
+      }
     } else if (state.mre_stage == "assemble") {
       out << " assemble checked="
           << compact_count(state.mre_checked_entries) << "/"

@@ -28,4 +28,10 @@ namespace qraft {
 /// opened.
 SpeciesTree infer_species_tree(std::vector<GeneTree> genes, const Options& options = {});
 
+/// Throws std::invalid_argument when `options` hold a value that
+/// infer_species_tree rejects (bipartition-test and SPR settings), so a
+/// caller can check them before reading any input. infer_species_tree runs
+/// the same checks.
+void validate_options(const Options& options);
+
 }  // namespace qraft

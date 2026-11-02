@@ -109,6 +109,10 @@ struct Options {
   /// Writes the frequencies and the three posteriors of each edge as a
   /// bracketed label in place of the bare support.
   bool support_detail = false;
+
+  /// Written as "qraft_version" in the statistics JSON when set (the command
+  /// line sets it to the version and commit); it changes nothing else.
+  std::string program_version;
 };
 
 }  // namespace qraft
