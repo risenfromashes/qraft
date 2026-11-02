@@ -89,6 +89,19 @@ Every option is listed by `qraft help options` and in the man page
   tree on some or all taxa before the run.
 - **Branch support** (`--support localpp`): local posterior probability and
   length in coalescent units on every internal edge whose ends are binary.
+- **Refined starting tree** (`--refine-start`), the refined-MRE ablation of
+  the paper: first refines the MRE starting tree as `--no-divide --extended`
+  does, then runs from it. It gives the same trees as these runs:
+
+```bash
+qraft -i genes.tre -o mre.tre --no-divide --no-nni
+qraft -i genes.tre -o refined.tre --starting-tree mre.tre --no-divide --extended
+qraft -i genes.tre -o divided.tre --starting-tree refined.tre --no-nni  # = --refine-start --no-nni
+qraft -i genes.tre -o out.tre --starting-tree divided.tre --no-divide   # = --refine-start
+qraft -i genes.tre -o out.tre --starting-tree divided.tre --no-divide --extended  # = --refine-start --extended
+```
+
+`qraft help ablations` says which run each other option goes to.
 
 Progress and a run summary go to standard error on a terminal; `-q` prints
 errors only and `-v` prints the summary in scripts too. `--stats-json PATH`
@@ -161,6 +174,12 @@ coalescent-based species tree inference to one million taxa. Manuscript in
 preparation.
 
 `CITATION.cff` holds the same reference in machine-readable form.
+
+## Data
+
+Outputs and logs of the paper's experiments:
+<https://huggingface.co/datasets/risenfromashes/qraft-data> (CC BY 4.0), in
+preparation.
 
 ## License
 

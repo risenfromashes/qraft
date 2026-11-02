@@ -10,6 +10,9 @@ The first release.
   refinement, for noisy biological data.
 - Guide trees (`--guide-tree`), branch support (`--support localpp`, and
   `qraft support` for a given tree), gene trees that miss taxa or repeat them.
+- The ablations of the paper as options, among them the refined MRE
+  (`--refine-start`), which gives in one run the trees of the four-run chain
+  that `qraft help ablations` lists.
 - Commands `check`, `version`, `selftest`, `completion` and `help`; input
   errors are reported before the run; `-q` and `-v`; exit status 0, 1, 2 or 3.
 

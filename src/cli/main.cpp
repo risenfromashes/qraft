@@ -169,7 +169,23 @@ std::string topic_help(const std::string& topic) {
            render_options(kInfer, false, "Branch support") + "\n" +
            command_help(*find_command("support"));
   }
-  if (topic == "ablations") return render_options(kInfer, false, "Ablations");
+  if (topic == "ablations") {
+    return render_options(kInfer, false, "Ablations") +
+           "\n--refine-start gives the trees of these four runs, where START "
+           "stands for the\nrun's --starting-tree and guide options, DIVIDE "
+           "for its divide and test options\nand REFINE for its NNI, SPR and "
+           "support options:\n"
+           "  qraft -i G -o mre.tre --no-divide --no-nni START\n"
+           "  qraft -i G -o refined.tre --starting-tree mre.tre --no-divide "
+           "--extended\n"
+           "  qraft -i G -o divided.tre --starting-tree refined.tre --no-nni "
+           "DIVIDE\n"
+           "  qraft -i G -o out.tre --starting-tree divided.tre --no-divide "
+           "REFINE\n"
+           "Under --no-nni without --spr-refine the last run is skipped and "
+           "the support\noptions go to the third. Under --no-divide the third "
+           "is skipped and the last\nstarts from refined.tre.\n";
+  }
   if (topic == "test") return render_options(kInfer, false, "Bipartition test");
   if (topic == "output") {
     return "Output:\n"
@@ -233,13 +249,15 @@ std::string mode_name(const qraft::Options& o, bool support_command) {
       o.bipartition_test.proposals != d.bipartition_test.proposals ||
       o.bipartition_test.anchor_pairs != d.bipartition_test.anchor_pairs ||
       o.spr_reads != d.spr_reads || o.spr_min_clade != d.spr_min_clade ||
-      o.spr_candidates != d.spr_candidates || o.spr_rounds != d.spr_rounds;
+      o.spr_candidates != d.spr_candidates || o.spr_rounds != d.spr_rounds ||
+      o.refine_start != d.refine_start;
   std::string name = extended && !ablation
                          ? "extended mode"
                          : (custom_extended || ablation ? "custom settings"
                                                         : "default mode");
   if (!o.starting_tree_path.empty()) name += ", given starting tree";
   if (!o.guide_tree_path.empty()) name += ", guide tree";
+  if (o.refine_start) name += ", refined starting tree";
   if (o.support == qraft::SupportMode::LocalPP) name += ", local PP support";
   return name;
 }

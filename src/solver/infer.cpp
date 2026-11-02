@@ -282,6 +282,7 @@ std::string startup_settings_summary(const Options& options) {
       << " spr_refine=" << flag(options.spr_refine)
       << " guide_tree=" << flag(!options.guide_tree_path.empty())
       << " guide_seed=" << flag(options.guide_seed)
+      << " refine_start=" << flag(options.refine_start)
       << " support=" << support_name(options);
   return out.str();
 }
@@ -315,6 +316,72 @@ SpeciesTree to_species(const SolverTree& solved, const TaxonRegistry& taxa,
     annotate_branch_support(*support_ctx, compact, map, species);
   }
   return species;
+}
+
+/// A solved tree as a run writes it and a later run reads it back as its
+/// starting tree: how each stage of refine_start hands its tree on.
+StartingTree reread_as_starting_tree(const SolverTree& tree,
+                                     const SolverContext& ctx) {
+  const TaxonRegistry& taxa = context_taxa(ctx);
+  return starting_tree_from(parse_newick(to_newick(to_species(tree, taxa))),
+                            taxa);
+}
+
+/// Puts the run's options back when a refine_start stage ends, including on
+/// a failure.
+class RunOptionsGuard {
+ public:
+  explicit RunOptionsGuard(SolverContext& ctx) : ctx_(ctx), run_(ctx.options) {}
+  RunOptionsGuard(const RunOptionsGuard&) = delete;
+  RunOptionsGuard& operator=(const RunOptionsGuard&) = delete;
+  ~RunOptionsGuard() { ctx_.options = run_; }
+  const Options& run() const { return run_; }
+
+ private:
+  SolverContext& ctx_;
+  const Options run_;
+};
+
+/// refine_start, first two stages: the starting tree as a run with divide
+/// and NNI off writes it, then its refinement as a run with divide off in
+/// extended mode at the default SPR settings writes it. Leaves the result
+/// as the starting tree.
+void refine_start_tree(SolverContext& ctx) {
+  RunOptionsGuard guard(ctx);
+  ctx.options.divide = false;
+  ctx.options.nni = false;
+  ctx.options.spr_refine = false;
+  ctx.starting_tree = reread_as_starting_tree(refine_starting_tree(ctx, false), ctx);
+  const Options defaults;
+  ctx.options.nni = true;
+  ctx.options.nni_batch = true;
+  ctx.options.nni_move_cap = false;
+  ctx.options.nni_support_gate = false;
+  ctx.options.spr_refine = true;
+  ctx.options.spr_reads = defaults.spr_reads;
+  ctx.options.spr_min_clade = defaults.spr_min_clade;
+  ctx.options.spr_candidates = defaults.spr_candidates;
+  ctx.options.spr_rounds = defaults.spr_rounds;
+  ctx.starting_tree = reread_as_starting_tree(refine_starting_tree(ctx, true), ctx);
+}
+
+/// refine_start, last two stages, from the refined starting tree: the
+/// divide and regraft without NNI and SPR refinement, written and read
+/// back; then, when the run has NNI or SPR refinement, those with divide
+/// off. Without divide only the last stage runs.
+SolverTree solve_from_refined_start(SolverContext& ctx, tf::Subflow* subflow) {
+  RunOptionsGuard guard(ctx);
+  const Options& run = guard.run();
+  if (run.divide) {
+    ctx.options.nni = false;
+    ctx.options.spr_refine = false;
+    SolverTree divided = solve_qraft(ctx, subflow);
+    if (!run.nni && !run.spr_refine) return divided;
+    ctx.starting_tree = reread_as_starting_tree(divided, ctx);
+    ctx.options = run;
+  }
+  ctx.options.divide = false;
+  return refine_starting_tree(ctx, run.nni);
 }
 
 /// Writes the run's options and counters as one flat JSON object.
@@ -374,6 +441,7 @@ void write_stats_json(const Options& options, const SolverContext& ctx) {
   out << "  \"spr_max_rounds\": " << options.spr_rounds << ",\n";
   out << "  \"guide_tree\": " << flag(!options.guide_tree_path.empty()) << ",\n";
   out << "  \"guide_seed\": " << flag(options.guide_seed) << ",\n";
+  out << "  \"refine_start\": " << flag(options.refine_start) << ",\n";
   out << "  \"support\": \"" << support_name(options) << "\",\n";
   const RunStats& stats = run_stats();
 #define QRAFT_WRITE_STAT(name)                                   \
@@ -549,7 +617,9 @@ SpeciesTree infer_species_tree(std::vector<GeneTree> genes, const Options& optio
     ctx.starting_tree =
         internal::apply_guide_tree(ctx.starting_tree, *guide_tree, ctx.taxa);
   }
-  if (!run_options.write_starting_tree_path.empty()) {
+  // Under refine_start the starting tree is written once it is refined.
+  const auto write_starting_tree = [&] {
+    if (run_options.write_starting_tree_path.empty()) return;
     std::ofstream starting_tree_out(run_options.write_starting_tree_path,
                                     std::ios::binary);
     starting_tree_out << internal::starting_tree_newick(ctx.starting_tree, ctx.taxa);
@@ -557,7 +627,8 @@ SpeciesTree infer_species_tree(std::vector<GeneTree> genes, const Options& optio
       throw std::runtime_error("failed to write starting tree file: " +
                                run_options.write_starting_tree_path);
     }
-  }
+  };
+  if (!run_options.refine_start) write_starting_tree();
   // Built after MRE so its arrays are not live at the MRE peak; it depends
   // only on the indexed genes. The test needs every gene to hold each of its
   // taxa once; genes may miss taxa. Otherwise it is off for the run.
@@ -578,7 +649,11 @@ SpeciesTree infer_species_tree(std::vector<GeneTree> genes, const Options& optio
   internal::SolverTree solved;
   tf::Taskflow solve_flow;
   solve_flow.emplace([&](tf::Subflow& sf) {
-    if (run_options.divide) {
+    if (run_options.refine_start) {
+      internal::refine_start_tree(ctx);
+      write_starting_tree();
+      solved = internal::solve_from_refined_start(ctx, &sf);
+    } else if (run_options.divide) {
       solved = internal::solve_qraft(ctx, &sf);
     } else {
       solved = internal::refine_starting_tree(ctx, run_options.nni);

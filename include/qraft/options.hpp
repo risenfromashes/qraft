@@ -67,7 +67,18 @@ struct Options {
   /// guide, when set; the guide then refines it as above. Needs
   /// guide_tree_path and no starting_tree_path.
   bool guide_seed = false;
-  /// Writes the starting tree used, after the guide, when set.
+  /// Refines the starting tree first, as a run with divide off in extended
+  /// mode at the default SPR settings does (unbounded batched NNI, then SPR
+  /// refinement), and runs from it: the refined MRE of the ablations. Each
+  /// stage hands its tree to the next as Newick text, so the result is the
+  /// tree of the equivalent chain of runs: the starting tree as a run with
+  /// divide and NNI off writes it; its extended refinement; the divide and
+  /// regraft without NNI and SPR; then, when NNI or SPR refinement is on,
+  /// those on the divided tree with divide off. Without divide the third
+  /// stage is skipped.
+  bool refine_start = false;
+  /// Writes the starting tree used, after the guide and refine_start, when
+  /// set.
   std::string write_starting_tree_path;
   std::string stats_json;  ///< writes the options and run statistics when set
 

@@ -379,6 +379,15 @@ if(QRAFT_BUILD_TESTS)
             -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cli_ablations.cmake)
   set_tests_properties(qraft.cli_ablations PROPERTIES
     LABELS "regression;determinism;dispatch" TIMEOUT 2400)
+  add_test(
+    NAME qraft.cli_refine_start
+    COMMAND ${CMAKE_COMMAND}
+            -DQRAFT_CLI=$<TARGET_FILE:qraft>
+            -DQRAFT_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}
+            -DQRAFT_CLI_TEST_DIR=${CMAKE_CURRENT_BINARY_DIR}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cli_refine_start.cmake)
+  set_tests_properties(qraft.cli_refine_start PROPERTIES
+    LABELS "regression;determinism;dispatch" TIMEOUT 900)
 
   if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     add_test(

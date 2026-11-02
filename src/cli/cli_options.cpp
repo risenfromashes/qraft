@@ -245,6 +245,12 @@ const std::vector<OptionSpec>& option_table() {
        "apply, per scoring pass, the NNI moves of largest total gain whose "
        "gains add exactly",
        [](CliState& s, const std::string&) { s.options.nni_batch = true; }},
+      {"--refine-start", nullptr, nullptr, nullptr, "Ablations", kInfer,
+       false,
+       "first refine the starting tree as --no-divide --extended does, then "
+       "run from it (the refined MRE; the same trees as the commands in "
+       "'qraft help ablations')",
+       [](CliState& s, const std::string&) { s.options.refine_start = true; }},
       // Bipartition test.
       {"--test-coefficient", nullptr, "C", nullptr, "Bipartition test", kInfer,
        false, "threshold coefficient (default 0.05)",
