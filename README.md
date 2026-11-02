@@ -1,5 +1,9 @@
 # QRAFT
 
+On 64 CPU threads and no GPU, QRAFT analyzed one million taxa with 1,000 gene
+trees in under 5.5 hours, and one million gene trees on 1,000 taxa in under 35
+minutes.
+
 QRAFT (Quartet Regrafting) infers a species tree from gene trees. It looks for
 the species tree that agrees with the most gene-tree quartets, counting every
 quartet exactly, and it scales to very large datasets. The tree it returns does
@@ -12,7 +16,9 @@ not depend on the number of threads.
 
 ## Install
 
-Download the release archive for Linux x86-64, unpack it, and check it:
+Download the release archive for your system, unpack it, and check it.
+
+Linux (x86-64):
 
 ```bash
 tar xf qraft-1.0.0-linux-x86_64.tar.gz
@@ -21,21 +27,20 @@ cd qraft-1.0.0-linux-x86_64
 export PATH="$PWD/bin:$PATH"
 ```
 
-The binary is static: it needs no libraries and runs on any x86-64 Linux, and
-under WSL2 on Windows.
+Windows (x86-64): unzip `qraft-1.0.0-windows-x86_64.zip`, then in a Command
+Prompt in that folder:
 
-To build from source (CMake 3.20 or newer, a C++20 compiler, and jemalloc's
-static library, `libjemalloc-dev` on Debian and Ubuntu):
-
-```bash
-git clone --recursive https://github.com/risenfromashes/qraft.git
-cd qraft
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build -j
-ctest --test-dir build -R '^qraft\.' -j 8
+```bat
+install-check.cmd
+qraft -i examples\genes-100taxa.tre -o species.tre
 ```
 
-Without jemalloc, configure with `-DQRAFT_STATIC_EXECUTABLE=OFF -DQRAFT_USE_JEMALLOC=OFF`.
+Both binaries are static: they need no libraries, and they infer the same trees.
+The Linux binary uses jemalloc as its memory allocator and the Windows binary
+the system allocator, so Windows runs may take longer. On Windows, keep file
+paths to plain ASCII characters.
+
+To build QRAFT yourself, see [Building from source](#building-from-source).
 
 ## Quick start
 
@@ -93,6 +98,61 @@ error, 3 when memory runs out.
 
 To compare the quartet scores of given trees, use tqDist (Sand et al.,
 Bioinformatics, 2014).
+
+## Building from source
+
+QRAFT needs CMake 3.20 or newer and a C++20 compiler (tested with GCC 13 and
+14). Its one dependency, Taskflow, comes as a git submodule.
+
+Linux (x86-64), on Debian 13 or Ubuntu 24.04:
+
+```bash
+sudo apt-get update && sudo apt-get install -y g++ cmake git python3 libjemalloc-dev
+git clone --recursive https://github.com/risenfromashes/qraft.git
+cd qraft
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j 4
+ctest --test-dir build -R '^qraft\.' -j 4     # the test suite, a few minutes
+build/qraft selftest
+```
+
+If you cloned without `--recursive`, fetch Taskflow with
+`git submodule update --init external/taskflow`. The default build is a static
+binary linked with jemalloc, so it needs jemalloc's static library
+(`libjemalloc-dev`). Without it, add
+`-DQRAFT_STATIC_EXECUTABLE=OFF -DQRAFT_USE_JEMALLOC=OFF` to the first `cmake`
+command. Python 3 is optional: it runs the checks of the counting scheme.
+
+Windows (x86-64): the Windows binary is cross-compiled on Linux with MinGW-w64.
+Building on Windows itself is not tested. On Debian 13 or Ubuntu 24.04, in the
+cloned repository:
+
+```bash
+sudo apt-get update && sudo apt-get install -y g++-mingw-w64-x86-64-posix cmake git
+cmake -S . -B build-windows -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_SYSTEM_PROCESSOR=x86_64 \
+  -DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-g++-posix -DCMAKE_BUILD_TYPE=Release \
+  -DQRAFT_BUILD_TESTS=OFF -DQRAFT_USE_JEMALLOC=OFF
+cmake --build build-windows --target qraft -j 4
+```
+
+This writes `build-windows/qraft.exe`, a static binary. Copy it to Windows and
+run `qraft selftest` there.
+
+macOS is not supported yet.
+
+The release archives are built by `release/build-release.sh` in a Docker image
+pinned to a fixed Debian image and package snapshot, so the same commit gives
+the same archives:
+
+```bash
+release/build-release.sh dist     # needs Docker; JOBS=4 limits the build to 4 CPUs
+cd dist && sha256sum -c SHA256SUMS
+```
+
+It writes `qraft-1.0.0-linux-x86_64.tar.gz`, `qraft-1.0.0-windows-x86_64.zip`
+and `SHA256SUMS`, and checks each binary with its selftest (the Windows one
+under Wine). Unpack an archive and run its install check as shown under
+[Install](#install).
 
 ## Citing QRAFT
 

@@ -11,7 +11,7 @@ option(QRAFT_ENABLE_IPO "Enable interprocedural optimization for release builds"
 option(QRAFT_USE_JEMALLOC
   "Use jemalloc; required by the default static executable profile" ON)
 option(QRAFT_STATIC_EXECUTABLE
-  "Build qraft as a fully static Linux executable" ON)
+  "Build qraft as a fully static executable (Linux, or Windows with MinGW-w64)" ON)
 
 set(QRAFT_NATIVE_CPU_FLAG_PATTERN
   "(^|[^A-Za-z0-9_])-(march|mcpu|mtune)=native($|[^A-Za-z0-9_])")
@@ -38,10 +38,11 @@ if(QRAFT_STATIC_EXECUTABLE)
     message(FATAL_ERROR
       "QRAFT_STATIC_EXECUTABLE requires BUILD_SHARED_LIBS=OFF")
   endif()
-  if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux" OR
-     NOT CMAKE_CXX_COMPILER_ID MATCHES "^(GNU|Clang)$")
+  if(NOT CMAKE_CXX_COMPILER_ID MATCHES "^(GNU|Clang)$" OR
+     NOT (CMAKE_SYSTEM_NAME STREQUAL "Linux" OR MINGW))
     message(FATAL_ERROR
-      "QRAFT_STATIC_EXECUTABLE currently requires Linux with GNU or Clang")
+      "QRAFT_STATIC_EXECUTABLE requires Linux, or Windows with MinGW-w64, and "
+      "GNU or Clang")
   endif()
   if(QRAFT_CONFIGURED_CXX_AND_LINK_FLAGS MATCHES
      "${QRAFT_NATIVE_CPU_FLAG_PATTERN}")
@@ -49,7 +50,7 @@ if(QRAFT_STATIC_EXECUTABLE)
       "QRAFT_STATIC_EXECUTABLE found native CPU tuning in configured "
       "compiler or linker flags")
   endif()
-  if(NOT QRAFT_USE_JEMALLOC)
+  if(NOT QRAFT_USE_JEMALLOC AND NOT WIN32)
     message(FATAL_ERROR
       "QRAFT_STATIC_EXECUTABLE requires static jemalloc. Install the "
       "jemalloc development package, or set QRAFT_STATIC_EXECUTABLE=OFF "
@@ -137,7 +138,9 @@ target_link_libraries(qraft_lib PUBLIC Threads::Threads PRIVATE Taskflow)
 
 set(QRAFT_ALL_COMPILER_FLAGS
     "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_DEBUG} ${CMAKE_CXX_FLAGS_RELEASE}")
-if(QRAFT_STATIC_EXECUTABLE)
+if(WIN32)
+  message(STATUS "Windows: using the system allocator")
+elseif(QRAFT_STATIC_EXECUTABLE)
   if(QRAFT_ALL_COMPILER_FLAGS MATCHES "sanitize")
     message(FATAL_ERROR
       "Sanitizers are incompatible with the default full-static jemalloc "
@@ -225,6 +228,10 @@ if(QRAFT_STATIC_EXECUTABLE)
       "The selected C++ toolchain cannot link a fully static executable")
   endif()
   target_link_options(qraft PRIVATE -static)
+  if(WIN32)
+    # No link time in the PE header, so a rebuild gives the same file.
+    target_link_options(qraft PRIVATE -Wl,--no-insert-timestamp)
+  endif()
 endif()
 
 if(QRAFT_ENABLE_IPO AND CMAKE_BUILD_TYPE STREQUAL "Release")
@@ -270,7 +277,7 @@ if(QRAFT_BUILD_TESTS)
       LABELS "regression;portability" TIMEOUT 60)
   endif()
 
-  if(QRAFT_STATIC_EXECUTABLE)
+  if(QRAFT_STATIC_EXECUTABLE AND NOT WIN32)
     set(QRAFT_READELF_EXECUTABLE "${CMAKE_READELF}")
     if(NOT QRAFT_READELF_EXECUTABLE OR
        NOT EXISTS "${QRAFT_READELF_EXECUTABLE}")

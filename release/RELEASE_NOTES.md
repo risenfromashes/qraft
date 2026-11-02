@@ -13,13 +13,17 @@ The first release.
 - Commands `check`, `version`, `selftest`, `completion` and `help`; input
   errors are reported before the run; `-q` and `-v`; exit status 0, 1, 2 or 3.
 
-## Release archive
+## Release archives
 
-`qraft-1.0.0-linux-x86_64.tar.gz`: a static binary for x86-64 Linux (it also
-runs under WSL2), the man page, shell completions, the license,
-the third-party notices with the license texts of the code linked into the
-binary (`licenses/`), a small example and `install-check.sh`. `SHA256SUMS`
-holds its checksum; `BUILDINFO.txt` inside names the compiler and packages.
+- `qraft-1.0.0-linux-x86_64.tar.gz`: a static binary for x86-64 Linux, the
+  man page, shell completions, a small example and `install-check.sh`.
+- `qraft-1.0.0-windows-x86_64.zip`: a static `qraft.exe` for x86-64 Windows,
+  the same example and `install-check.cmd`.
+
+Each holds the license, the third-party notices with the license texts of the
+code linked into its binary (`licenses/`) and `BUILDINFO.txt`, which names the
+compiler and packages. `SHA256SUMS` holds the checksums of both. The two
+binaries infer the same trees.
 
 ```bash
 sha256sum -c SHA256SUMS

@@ -35,9 +35,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## jemalloc (in the release binary, linked statically)
+## jemalloc (in the Linux release binary, linked statically)
 
-The memory allocator of the release binary. It is not part of the source tree.
+The memory allocator of the Linux release binary. It is not part of the source
+tree, and the Windows binary does not use it.
 
 ```
 Copyright: 2002-present Jason Evans <jasone@canonware.com>
@@ -64,9 +65,9 @@ OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
 ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-## GNU C Library, libstdc++ and libgcc (in the release binary, linked statically)
+## GNU C Library, libstdc++ and libgcc (in the Linux release binary, linked statically)
 
-The release binary is statically linked with the GNU C Library (GNU LGPL,
+The Linux release binary is statically linked with the GNU C Library (GNU LGPL,
 version 2.1 or later) and with the GCC runtime libraries libstdc++ and libgcc
 (GNU GPL, version 3 or later, with the GCC Runtime Library Exception, which
 allows their use in binaries under any license). The release archive's
@@ -80,6 +81,19 @@ The release archive's `licenses/` folder holds the full texts:
 `GPL-3.0.txt`, `LGPL-2.1.txt`, `gcc-runtime-libraries.txt` (the GCC
 copyright file, with the GCC Runtime Library Exception), `glibc.txt`,
 `jemalloc.txt` and `taskflow.txt`.
+
+## MinGW-w64 runtime, libstdc++ and libgcc (in the Windows release binary, linked statically)
+
+The Windows release binary is built with the MinGW-w64 toolchain and statically
+linked with its runtime: the MinGW-w64 C runtime and winpthreads (Zope Public
+License 2.1, public domain and other permissive licenses) and the GCC runtime
+libraries libstdc++ and libgcc (GNU GPL, version 3 or later, with the GCC
+Runtime Library Exception). It calls the Windows system C runtime (msvcrt.dll).
+The Windows archive's `licenses/` folder holds `mingw-w64-runtime.txt` (the
+MinGW-w64 copyright file), `gcc-runtime-libraries.txt` (with the exception),
+`GPL-3.0.txt` and `taskflow.txt`; `BUILDINFO.txt` names the package versions,
+whose sources are available from Debian (https://sources.debian.org/) and from
+https://www.mingw-w64.org/.
 
 ## Test data
 

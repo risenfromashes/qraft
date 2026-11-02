@@ -18,7 +18,11 @@
 #include <vector>
 
 #if defined(_WIN32)
+#define NOMINMAX
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
 #include <io.h>
+#include <psapi.h>
 #else
 #include <sys/resource.h>
 #include <unistd.h>
@@ -41,9 +45,32 @@ bool stderr_is_tty() {
 #endif
 }
 
+// Whether standard error understands ANSI escapes (colour, the progress
+// line). A Windows console does once its virtual-terminal mode is on, which
+// this turns on; consoles that refuse it get plain text.
+bool stderr_takes_escapes() {
+#if defined(_WIN32)
+  static const bool takes = [] {
+    const HANDLE handle = GetStdHandle(STD_ERROR_HANDLE);
+    DWORD mode = 0;
+    if (handle == INVALID_HANDLE_VALUE || !GetConsoleMode(handle, &mode)) {
+      return false;
+    }
+    return (mode & ENABLE_VIRTUAL_TERMINAL_PROCESSING) != 0 ||
+           SetConsoleMode(handle, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING) != 0;
+  }();
+  return takes;
+#else
+  return true;
+#endif
+}
+
 bool color_enabled() {
   static const bool enabled = [] {
-    if (!stderr_is_tty() || std::getenv("NO_COLOR") != nullptr) return false;
+    if (!stderr_is_tty() || !stderr_takes_escapes() ||
+        std::getenv("NO_COLOR") != nullptr) {
+      return false;
+    }
     const char* term = std::getenv("TERM");
     return term == nullptr || std::string_view(term) != "dumb";
   }();
@@ -176,7 +203,11 @@ int hardware_threads() {
 
 double peak_memory_mb() {
 #if defined(_WIN32)
-  return 0.0;
+  PROCESS_MEMORY_COUNTERS counters{};
+  if (!K32GetProcessMemoryInfo(GetCurrentProcess(), &counters, sizeof counters)) {
+    return 0.0;
+  }
+  return static_cast<double>(counters.PeakWorkingSetSize) / (1024.0 * 1024.0);
 #else
   rusage usage{};
   if (getrusage(RUSAGE_SELF, &usage) != 0) return 0.0;
@@ -267,8 +298,9 @@ int run_inference(int begin, int argc, char** argv, bool support_command) {
   if (s.verbosity == Verbosity::Quiet) {
     options.progress = qraft::ProgressMode::Off;
   } else if (!s.progress_given) {
-    options.progress =
-        stderr_is_tty() ? qraft::ProgressMode::On : qraft::ProgressMode::Off;
+    options.progress = stderr_is_tty() && stderr_takes_escapes()
+                           ? qraft::ProgressMode::On
+                           : qraft::ProgressMode::Off;
   }
   // Option values the library would reject are usage errors, reported
   // before any input is read.
@@ -599,9 +631,7 @@ int dispatch(int argc, char** argv) {
   return run_inference(1, argc, argv, false);
 }
 
-}  // namespace
-
-int main(int argc, char** argv) {
+int run_main(int argc, char** argv) {
   try {
     return dispatch(argc, argv);
   } catch (const UsageError& ex) {
@@ -617,4 +647,21 @@ int main(int argc, char** argv) {
     std::cerr << paint("qraft:", "1;31") << " " << ex.what() << "\n";
     return 1;
   }
+}
+
+}  // namespace
+
+int main(int argc, char** argv) {
+  const int status = run_main(argc, argv);
+#if defined(_WIN32)
+  // Every output file is written and closed by now. Joining the process-wide
+  // worker threads in a static destructor can hang at exit with the MinGW
+  // thread library, so the Windows binary leaves without static destruction.
+  std::cout.flush();
+  std::cerr.flush();
+  std::fflush(nullptr);
+  std::_Exit(status);
+#else
+  return status;
+#endif
 }

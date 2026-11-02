@@ -320,7 +320,7 @@ SpeciesTree to_species(const SolverTree& solved, const TaxonRegistry& taxa,
 /// Writes the run's options and counters as one flat JSON object.
 void write_stats_json(const Options& options, const SolverContext& ctx) {
   if (options.stats_json.empty()) return;
-  std::ofstream out(options.stats_json);
+  std::ofstream out(options.stats_json, std::ios::binary);
   if (!out) {
     throw std::runtime_error("failed to open stats file: " +
                              options.stats_json);
@@ -550,7 +550,8 @@ SpeciesTree infer_species_tree(std::vector<GeneTree> genes, const Options& optio
         internal::apply_guide_tree(ctx.starting_tree, *guide_tree, ctx.taxa);
   }
   if (!run_options.write_starting_tree_path.empty()) {
-    std::ofstream starting_tree_out(run_options.write_starting_tree_path);
+    std::ofstream starting_tree_out(run_options.write_starting_tree_path,
+                                    std::ios::binary);
     starting_tree_out << internal::starting_tree_newick(ctx.starting_tree, ctx.taxa);
     if (!starting_tree_out) {
       throw std::runtime_error("failed to write starting tree file: " +

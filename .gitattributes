@@ -1,2 +1,3 @@
 * text=auto eol=lf
+*.cmd text eol=crlf
 src/counting/generated/*.hpp linguist-generated=true
