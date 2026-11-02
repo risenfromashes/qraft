@@ -1,0 +1,23 @@
+cff-version: 1.2.0
+message: "If you use QRAFT, please cite the paper below."
+title: QRAFT
+version: 1.0.0
+license: AGPL-3.0-or-later
+authors:
+  - given-names: Ashrafur
+    family-names: Rahman
+  - given-names: Anik
+    family-names: Saha
+  - given-names: Md. Shamsuzzoha
+    family-names: Bayzid
+preferred-citation:
+  type: article
+  title: "QRAFT: Scaling coalescent-based species tree inference to one million taxa"
+  status: in-preparation
+  authors:
+    - given-names: Ashrafur
+      family-names: Rahman
+    - given-names: Anik
+      family-names: Saha
+    - given-names: Md. Shamsuzzoha
+      family-names: Bayzid

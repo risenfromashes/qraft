@@ -1,0 +1,13 @@
+# The Debian archive as of the release image's own snapshot date, so the
+# packages installed on top of the pinned image are fixed too.
+Types: deb
+URIs: http://snapshot.debian.org/archive/debian/20261027T000000Z
+Suites: trixie trixie-updates
+Components: main
+Signed-By: /usr/share/keyrings/debian-archive-keyring.pgp
+
+Types: deb
+URIs: http://snapshot.debian.org/archive/debian-security/20261027T000000Z
+Suites: trixie-security
+Components: main
+Signed-By: /usr/share/keyrings/debian-archive-keyring.pgp
