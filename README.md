@@ -167,19 +167,93 @@ and `SHA256SUMS`, and checks each binary with its selftest (the Windows one
 under Wine). Unpack an archive and run its install check as shown under
 [Install](#install).
 
+## Simulating the datasets
+
+The paper's simulated datasets are gene trees under the multispecies coalescent,
+made with [SimPhy-X 1.0.0](https://github.com/aaniksahaa/simphy-x/releases/tag/v1.0.0)
+(GPL-3.0; Saha, Rahman and Bayzid, in preparation), a parallel re-implementation
+of SimPhy 1.0.2 (Mallo, de Oliveira Martins and Posada, Systematic Biology,
+2016). In its default compat mode SimPhy-X writes the same files as SimPhy 1.0.2
+for the same command and seed. The scripts in `simulation/` run it with the
+paper's model and seed; they need Linux, bash, GNU getopt and Python 3.
+
+Get SimPhy-X (a static x86-64 Linux binary; a Windows one is in the same
+release):
+
+```bash
+curl -LO https://github.com/aaniksahaa/simphy-x/releases/download/v1.0.0/simphy-x-1.0.0-linux-x86_64
+echo "25b5631019762f7da2e5de3228c713923ec00b98df2e5b4442b8e7b33d193ec4  simphy-x-1.0.0-linux-x86_64" | sha256sum -c
+chmod +x simphy-x-1.0.0-linux-x86_64
+```
+
+One dataset, 1,000 taxa with 1,000 gene trees at ILS-L2, five replicates:
+
+```bash
+simulation/simulate.sh -t 1000 -g 1000 --replicates 5 --spmin 100000 --spmax 200000 \
+  --simphy-bin ./simphy-x-1.0.0-linux-x86_64
+qraft -i data/t_1000_g_1000_sb_0.000001_spmin_100000_spmax_200000/R1/all_gt.tre -o R1.tre
+```
+
+This takes about 5 seconds on 4 threads and writes 134 MB:
+`data/t_1000_g_1000_sb_0.000001_spmin_100000_spmax_200000/R1` to `R5`, each with
+`all_gt.tre` (one gene tree per line) and `s_tree.trees` (the true species
+tree), and SimPhy's `.command`, `.params` and `.db` files, which record how the
+dataset was made. All 10 tree files are byte-identical to the ones the paper
+used, with SimPhy-X 1.0.0 and with SimPhy 1.0.2
+(`--engine simphy-old --simphy-bin simphy_lnx64`).
+
+The model: speciation rate 10^-6, no duplication, loss or transfer, species-tree
+height LN(16.2, 1), population size U(spmin, spmax), substitution rate
+LN(-17.27461, 0.6931472), generation time 1, seed 42. The ILS levels keep spmin
+at 100,000 and set spmax to 150,000 (ILS-L1), 200,000 (ILS-L2), 250,000
+(ILS-L3) or 300,000 (ILS-L4).
+
+The paper's datasets, one family per command, all with five replicates (a family
+skips the datasets already in `data/`; `--dry-run` lists its commands):
+
+```bash
+# Scalability, ILS-L2: 1,000 to 300,000 taxa with 1,000 gene trees, and 1,000 taxa
+# with 1,000 to 300,000 gene trees (33 datasets)
+simulation/paper-datasets.sh scalability --simphy-bin ./simphy-x-1.0.0-linux-x86_64
+
+# One million, ILS-L2: 100,000 to 1,000,000 taxa or gene trees, in steps of 100,000 (20 datasets)
+simulation/paper-datasets.sh million --simphy-bin ./simphy-x-1.0.0-linux-x86_64
+
+# Varying ILS, ILS-L1 to ILS-L4: 1,000 to 40,000 taxa with 1,000 gene trees, and 1,000
+# taxa with 5,000 to 50,000 gene trees (40 datasets)
+simulation/paper-datasets.sh vary-ils --simphy-bin ./simphy-x-1.0.0-linux-x86_64
+```
+
+Time and disk grow with taxa × gene trees × replicates: finished gene trees take
+28 to 30 bytes per leaf. By that rate the families need about 550 to 600 GB
+(scalability), 1.5 to 1.7 TB (one million; 140 to 150 GB per million-taxon or
+million-gene dataset) and 110 to 120 GB (varying ILS). The million-scale
+datasets take hours each, and writing one of their replicates needs about
+180 GB of free disk before the per-locus files are removed.
+
+The 37-taxon mammalian, ASTRAL-II and ASTRAL-MP datasets are not simulated
+here; they come from their original studies (Mirarab et al. 2014, Mirarab and
+Warnow 2015, Yin et al. 2019).
+
 ## Citing QRAFT
 
 Ashrafur Rahman, Anik Saha and Md. Shamsuzzoha Bayzid. QRAFT: Scaling
 coalescent-based species tree inference to one million taxa. Manuscript in
 preparation.
 
-`CITATION.cff` holds the same reference in machine-readable form.
+`CITATION.cff` holds the same reference in machine-readable form. If you
+simulate the datasets, please also cite SimPhy-X (Anik Saha, Ashrafur Rahman and
+Md. Shamsuzzoha Bayzid, in preparation; <https://github.com/aaniksahaa/simphy-x>)
+and SimPhy (Diego Mallo, Leonardo de Oliveira Martins and David Posada, SimPhy:
+phylogenomic simulation of gene, locus, and species trees, Systematic Biology
+65(2):334-344, 2016).
 
 ## Data
 
 Outputs and logs of the paper's experiments:
 <https://huggingface.co/datasets/risenfromashes/qraft-data> (CC BY 4.0), in
-preparation.
+preparation. The simulated gene trees can be regenerated with the scripts in
+`simulation/`; see [Simulating the datasets](#simulating-the-datasets).
 
 ## License
 
