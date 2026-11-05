@@ -113,6 +113,42 @@ error, 3 when memory runs out.
 To compare the quartet scores of given trees, use tqDist (Sand et al.,
 Bioinformatics, 2014).
 
+## Simulating the datasets
+
+A sample of the 10,000, 100,000 and 1,000,000-taxon datasets
+([zip](https://huggingface.co/datasets/risenfromashes/qraft-data/resolve/main/datasets/scalability-sample/scalability-sample-10k-100k-1M-R1-R2.zip),
+28 GB) can be run without simulating:
+
+```bash
+curl -LO https://huggingface.co/datasets/risenfromashes/qraft-data/resolve/main/datasets/scalability-sample/scalability-sample-10k-100k-1M-R1-R2.zip
+unzip scalability-sample-10k-100k-1M-R1-R2.zip
+qraft -i scalability-sample/t_10000_*/R1/all_gt.tre -o species-10k.tre
+```
+
+The paper's datasets were simulated with
+[SimPhy-X](https://github.com/aaniksahaa/simphy-x) 1.0.0, a
+multithreaded re-implementation of SimPhy 1.0.2 that gives the same trees for
+the same command and seed. Two scripts in `simulation/` run it with the paper's
+model and seed (Linux, bash, Python 3):
+
+- `simulate.sh` simulates one dataset, given the number of taxa (`-t`), gene
+  trees (`-g`) and replicates, and the population-size range (`--spmin`,
+  `--spmax`) that sets the level of incomplete lineage sorting. Each replicate
+  folder `R1`, `R2`, ... gets the gene trees in `all_gt.tre`, one per line, and
+  the true species tree in `s_tree.trees`.
+- `paper-datasets.sh` runs `simulate.sh` for every dataset of one experiment:
+  `scalability`, `million` or `vary-ils` (`--dry-run` lists the commands).
+
+```bash
+curl -LO https://github.com/aaniksahaa/simphy-x/releases/download/v1.0.0/simphy-x-1.0.0-linux-x86_64
+chmod +x simphy-x-1.0.0-linux-x86_64
+# one dataset: 1,000 taxa, 1,000 gene trees, five replicates
+simulation/simulate.sh -t 1000 -g 1000 --replicates 5 --spmin 100000 --spmax 200000 \
+  --simphy-bin ./simphy-x-1.0.0-linux-x86_64
+# all datasets of one experiment (up to 1.7 TB)
+simulation/paper-datasets.sh scalability --simphy-bin ./simphy-x-1.0.0-linux-x86_64
+```
+
 ## Building from source
 
 QRAFT needs CMake 3.20 or newer and a C++20 compiler (tested with GCC 13 and
@@ -167,90 +203,6 @@ It writes `qraft-1.0.0-linux-x86_64.tar.gz`, `qraft-1.0.0-windows-x86_64.zip`
 and `SHA256SUMS`, and checks each binary with its selftest (the Windows one
 under Wine). Unpack an archive and run its install check as shown under
 [Install](#install).
-
-## Simulating the datasets
-
-The paper's simulated datasets are gene trees under the multispecies coalescent,
-made with [SimPhy-X 1.0.0](https://github.com/aaniksahaa/simphy-x/releases/tag/v1.0.0)
-(GPL-3.0; Saha, Rahman and Bayzid, in preparation), a parallel re-implementation
-of SimPhy 1.0.2 (Mallo, de Oliveira Martins and Posada, Systematic Biology,
-2016). In its default compat mode SimPhy-X writes the same files as SimPhy 1.0.2
-for the same command and seed. The scripts in `simulation/` run it with the
-paper's model and seed; they need Linux, bash, GNU getopt and Python 3.
-
-A sample of the 10,000, 100,000 and 1,000,000-taxon datasets, with 1,000 gene
-trees each, is in
-[scalability-sample-10k-100k-1M-R1-R2.zip](https://huggingface.co/datasets/risenfromashes/qraft-data/resolve/main/datasets/scalability-sample/scalability-sample-10k-100k-1M-R1-R2.zip)
-(28 GB), so QRAFT can be run without simulating. It can be downloaded and run
-as follows:
-
-```bash
-curl -LO https://huggingface.co/datasets/risenfromashes/qraft-data/resolve/main/datasets/scalability-sample/scalability-sample-10k-100k-1M-R1-R2.zip
-unzip scalability-sample-10k-100k-1M-R1-R2.zip
-cd scalability-sample
-qraft -i t_10000_*/R1/all_gt.tre -o species-10k.tre
-```
-
-Each dataset folder holds the gene trees (`all_gt.tre`) and the true species
-tree (`s_tree.trees`).
-
-Get SimPhy-X (a static x86-64 Linux binary; a Windows one is in the same
-release):
-
-```bash
-curl -LO https://github.com/aaniksahaa/simphy-x/releases/download/v1.0.0/simphy-x-1.0.0-linux-x86_64
-echo "25b5631019762f7da2e5de3228c713923ec00b98df2e5b4442b8e7b33d193ec4  simphy-x-1.0.0-linux-x86_64" | sha256sum -c
-chmod +x simphy-x-1.0.0-linux-x86_64
-```
-
-One dataset, 1,000 taxa with 1,000 gene trees at ILS-L2, five replicates:
-
-```bash
-simulation/simulate.sh -t 1000 -g 1000 --replicates 5 --spmin 100000 --spmax 200000 \
-  --simphy-bin ./simphy-x-1.0.0-linux-x86_64
-qraft -i data/t_1000_g_1000_sb_0.000001_spmin_100000_spmax_200000/R1/all_gt.tre -o R1.tre
-```
-
-This takes about 5 seconds on 4 threads and writes 134 MB:
-`data/t_1000_g_1000_sb_0.000001_spmin_100000_spmax_200000/R1` to `R5`, each with
-`all_gt.tre` (one gene tree per line) and `s_tree.trees` (the true species
-tree), and SimPhy's `.command`, `.params` and `.db` files, which record how the
-dataset was made. All 10 tree files are byte-identical to the ones the paper
-used, with SimPhy-X 1.0.0 and with SimPhy 1.0.2
-(`--engine simphy-old --simphy-bin simphy_lnx64`).
-
-The model: speciation rate 10^-6, no duplication, loss or transfer, species-tree
-height LN(16.2, 1), population size U(spmin, spmax), substitution rate
-LN(-17.27461, 0.6931472), generation time 1, seed 42. The ILS levels keep spmin
-at 100,000 and set spmax to 150,000 (ILS-L1), 200,000 (ILS-L2), 250,000
-(ILS-L3) or 300,000 (ILS-L4).
-
-The paper's datasets, one family per command, all with five replicates (a family
-skips the datasets already in `data/`; `--dry-run` lists its commands):
-
-```bash
-# Scalability, ILS-L2: 1,000 to 300,000 taxa with 1,000 gene trees, and 1,000 taxa
-# with 1,000 to 300,000 gene trees (33 datasets)
-simulation/paper-datasets.sh scalability --simphy-bin ./simphy-x-1.0.0-linux-x86_64
-
-# One million, ILS-L2: 100,000 to 1,000,000 taxa or gene trees, in steps of 100,000 (20 datasets)
-simulation/paper-datasets.sh million --simphy-bin ./simphy-x-1.0.0-linux-x86_64
-
-# Varying ILS, ILS-L1 to ILS-L4: 1,000 to 40,000 taxa with 1,000 gene trees, and 1,000
-# taxa with 5,000 to 50,000 gene trees (40 datasets)
-simulation/paper-datasets.sh vary-ils --simphy-bin ./simphy-x-1.0.0-linux-x86_64
-```
-
-Time and disk grow with taxa × gene trees × replicates: finished gene trees take
-28 to 30 bytes per leaf. By that rate the families need about 550 to 600 GB
-(scalability), 1.5 to 1.7 TB (one million; 140 to 150 GB per million-taxon or
-million-gene dataset) and 110 to 120 GB (varying ILS). The million-scale
-datasets take hours each, and writing one of their replicates needs about
-180 GB of free disk before the per-locus files are removed.
-
-The 37-taxon mammalian, ASTRAL-II and ASTRAL-MP datasets are not simulated
-here; they come from their original studies (Mirarab et al. 2014, Mirarab and
-Warnow 2015, Yin et al. 2019).
 
 ## Citing QRAFT
 
