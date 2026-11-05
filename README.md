@@ -178,6 +178,22 @@ of SimPhy 1.0.2 (Mallo, de Oliveira Martins and Posada, Systematic Biology,
 for the same command and seed. The scripts in `simulation/` run it with the
 paper's model and seed; they need Linux, bash, GNU getopt and Python 3.
 
+A sample of the 10,000, 100,000 and 1,000,000-taxon datasets, with 1,000 gene
+trees each, is in
+[scalability-sample-10k-100k-1M-R1-R2.zip](https://huggingface.co/datasets/risenfromashes/qraft-data/resolve/main/datasets/scalability-sample/scalability-sample-10k-100k-1M-R1-R2.zip)
+(28 GB), so QRAFT can be run without simulating. It can be downloaded and run
+as follows:
+
+```bash
+curl -LO https://huggingface.co/datasets/risenfromashes/qraft-data/resolve/main/datasets/scalability-sample/scalability-sample-10k-100k-1M-R1-R2.zip
+unzip scalability-sample-10k-100k-1M-R1-R2.zip
+cd scalability-sample
+qraft -i t_10000_*/R1/all_gt.tre -o species-10k.tre
+```
+
+Each dataset folder holds the gene trees (`all_gt.tre`) and the true species
+tree (`s_tree.trees`).
+
 Get SimPhy-X (a static x86-64 Linux binary; a Windows one is in the same
 release):
 
