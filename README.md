@@ -1,8 +1,5 @@
 # QRAFT
 
-On 64 CPU threads and no GPU, QRAFT analyzed one million taxa with 1,000 gene
-trees in under 5.5 hours, and one million gene trees on 1,000 taxa in under 35
-minutes.
 
 QRAFT (Quartet Regrafting) infers a species tree from gene trees. It looks for
 the species tree that agrees with the most gene-tree quartets, counting every
@@ -13,6 +10,10 @@ not depend on the number of threads.
   hold several copies of a taxon.
 - Output: the species tree as one Newick line, optionally with local posterior
   probabilities on its edges.
+
+On 64 CPU threads and no GPU, QRAFT analyzed one million taxa with 1,000 gene
+trees in under 5.5 hours, and one million gene trees on 1,000 taxa in under 35
+minutes.
 
 ## Install
 
