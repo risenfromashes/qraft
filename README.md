@@ -62,6 +62,19 @@ qraft -i examples/genes-100taxa.tre -o out.tre
 cmp out.tre examples/expected-100taxa.tre && echo same
 ```
 
+## Sample datasets
+
+A sample of the large-scale dataset
+([zip](https://huggingface.co/datasets/risenfromashes/qraft-data/resolve/main/datasets/scalability-sample/scalability-sample-10k-100k-1M-R1-R2.zip),
+28 GB) holds two replicates each of the 10,000, 100,000 and 1,000,000-taxon
+datasets, with 1,000 gene trees each. It can be downloaded and run as follows:
+
+```bash
+curl -LO https://huggingface.co/datasets/risenfromashes/qraft-data/resolve/main/datasets/scalability-sample/scalability-sample-10k-100k-1M-R1-R2.zip
+unzip scalability-sample-10k-100k-1M-R1-R2.zip
+qraft -i scalability-sample/t_10000_*/R1/all_gt.tre -o species-10k.tre
+```
+
 ## Commands
 
 | command | what it does |
@@ -114,16 +127,6 @@ To compare the quartet scores of given trees, use tqDist (Sand et al.,
 Bioinformatics, 2014).
 
 ## Simulating the datasets
-
-A sample of the 10,000, 100,000 and 1,000,000-taxon datasets
-([zip](https://huggingface.co/datasets/risenfromashes/qraft-data/resolve/main/datasets/scalability-sample/scalability-sample-10k-100k-1M-R1-R2.zip),
-28 GB) can be run without simulating:
-
-```bash
-curl -LO https://huggingface.co/datasets/risenfromashes/qraft-data/resolve/main/datasets/scalability-sample/scalability-sample-10k-100k-1M-R1-R2.zip
-unzip scalability-sample-10k-100k-1M-R1-R2.zip
-qraft -i scalability-sample/t_10000_*/R1/all_gt.tre -o species-10k.tre
-```
 
 The paper's datasets were simulated with
 [SimPhy-X](https://github.com/aaniksahaa/simphy-x) 1.0.0, a
