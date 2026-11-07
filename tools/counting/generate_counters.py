@@ -2,8 +2,8 @@
 """Derive QRAFT's counter tables and write src/counting/generated/.
 
 For K = 2 and K = 4 colours this enumerates the canonical shapes of every
-component sort (shapes.py), computes the minimal counters as an exact
-rational quotient, re-expresses them in the natural counter basis
+component sort (shapes.py), computes the counters as an exact rational
+quotient, re-expresses them in the natural counter basis
 (natural_counters.py), and derives every transition (C_TO_G, IG, CLOSE,
 REVERSE, GG, CC) as a sparse table with unit coefficients. Each table is
 checked on every legal pair of canonical states, and the resulting counting

@@ -6,8 +6,8 @@
 #include <span>
 #include <vector>
 
-// Counters of HDT components for a fixed palette K = 2 or 4: the minimal
-// counter basis (unit, leaf, pair, triple and quartet counters), derived by
+// Counters of HDT components for a fixed palette K = 2 or 4: the counter
+// basis (unit, leaf, pair, triple and quartet counters), derived by
 // tools/counting/generate_counters.py into generated/counters_k{2,4}.hpp.
 // Every transition is a fixed linear or bilinear map, so it costs O(1) for a
 // fixed K:

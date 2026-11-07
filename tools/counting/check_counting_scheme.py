@@ -2,8 +2,8 @@
 """Adversarial verification of shapes.py.
 
 A passing exactness test does NOT by itself prove the canonical form is a true
-graph-isomorphism invariant, nor that the observable-quotient rank is the true
-minimal sufficient-statistic dimension. This script attacks both, plus the
+graph-isomorphism invariant, nor that the observable-quotient rank is the exact
+dimension of the observable subspace. This script attacks both, plus the
 brute-force oracle itself, with independent methods:
 
   T1  Extended exactness battery: adversarial trees (stars, all-one-color,
@@ -20,7 +20,7 @@ brute-force oracle itself, with independent methods:
       span(W_in) (Basis.in_span, non-mutating). If any pullback escaped the span,
       the observable subspace would not be closed and the reported rank would be
       too small. Closed + generated from the readout => W_T is exactly the
-      observable subspace => the rank is the exact minimal payload, not an
+      observable subspace => the rank is the exact payload, not an
       underestimate.
   T5  Exhaustive algebra laws: every reachable degree-bounded G triple and
       every legal C corridor triple is parenthesization-invariant; GG is
@@ -241,7 +241,7 @@ def test_t4_closure(K):
     pullback -- for each op and each W_out basis functional, its pullback to the
     operand interface(s) already lies in span(W_in).  Closed + generated from the
     readout  =>  W_T is exactly the observable subspace  =>  rank is the true
-    minimal payload (not an underestimate).  Uses the same interface bucketing as
+    payload (not an underestimate).  Uses the same interface bucketing as
     the generator, and Basis.in_span (non-mutating)."""
     print(f"=== T4: observable-subspace CLOSURE under every op (K={K}) ===")
     REG.clear()

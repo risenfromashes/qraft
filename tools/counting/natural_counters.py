@@ -1,8 +1,8 @@
-"""The natural counters: the counter basis of the minimal counting scheme.
+"""The natural counters: the counter basis of the counting scheme.
 
 Each counter counts one kind of leaf set of a component, described by how the
-set sits relative to the component's boundary (the paper's supplement, "The
-minimal counters"). On a shape with leaf set S:
+set sits relative to the component's boundary (the paper's supplement,
+"Counters stored by an HDT component"). On a shape with leaf set S:
 
   unit                       S is empty (every sort except R)
   leaf i                     one leaf of colour i

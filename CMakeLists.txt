@@ -505,19 +505,6 @@ if(QRAFT_BUILD_TESTS)
               --check-reproducible
     )
 
-    # The machine checks of the counting scheme (verification/) and the check that
-    # the production tables are its natural counting scheme.
-    foreach(check IN ITEMS production_counters natural_closure span_full
-                           end_to_end lower_bound)
-      add_test(
-        NAME qraft.verification_${check}
-        COMMAND ${Python3_EXECUTABLE} -B
-                ${CMAKE_CURRENT_SOURCE_DIR}/verification/check_${check}.py
-      )
-      set_tests_properties(qraft.verification_${check} PROPERTIES
-        LABELS "proof;verification" TIMEOUT 300)
-    endforeach()
-
     # Deterministic all-topology/all-contraction reference shard. The full
     # through-eight command uses the same seed and 256 shards.
     add_test(

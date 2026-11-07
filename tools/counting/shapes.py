@@ -13,8 +13,8 @@ checks three facts that the counter tables rest on:
   2. Finiteness and completeness: each sort has a constant number of shapes,
      independent of tree size and degree, and composition closes exactly on
      an independent enumeration of every legal reduced shape.
-  3. Minimality and reproducibility: an exact pullback closure gives the
-     minimal linear counters, and a canonical RREF fixes their coordinates
+  3. Reproducibility: an exact pullback closure gives the linear counters,
+     and a canonical RREF fixes their coordinates
      independently of Python's hash order.
 
 Run:  python3 tools/counting/shapes.py
