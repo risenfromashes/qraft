@@ -15,10 +15,6 @@ On 64 CPU threads and no GPU, QRAFT analyzed one million taxa with 1,000 gene
 trees in under 5.5 hours, and one million gene trees on 1,000 taxa in under 35
 minutes.
 
-Preprint: [QRAFT: Scaling coalescent-based species tree inference to one million
-taxa](https://www.biorxiv.org/content/10.64898/2026.11.05.764586v1), bioRxiv,
-doi:[10.64898/2026.11.05.764586](https://doi.org/10.64898/2026.11.05.764586).
-
 ## Install
 
 Download the release archive for your system, unpack it, and check it.
@@ -215,8 +211,7 @@ under Wine). Unpack an archive and run its install check as shown under
 
 Ashrafur Rahman, Anik Saha and Md. Shamsuzzoha Bayzid. QRAFT: Scaling
 coalescent-based species tree inference to one million taxa. bioRxiv, 2026.
-doi:[10.64898/2026.11.05.764586](https://doi.org/10.64898/2026.11.05.764586)
-([preprint](https://www.biorxiv.org/content/10.64898/2026.11.05.764586v1)).
+doi:[10.64898/2026.11.05.764586](https://doi.org/10.64898/2026.11.05.764586).
 
 `CITATION.cff` holds the same reference in machine-readable form. If you
 simulate the datasets, please also cite SimPhy-X (Anik Saha, Ashrafur Rahman and
