@@ -13,7 +13,11 @@ authors:
 preferred-citation:
   type: article
   title: "QRAFT: Scaling coalescent-based species tree inference to one million taxa"
-  status: in-preparation
+  status: preprint
+  journal: bioRxiv
+  year: 2026
+  doi: 10.64898/2026.11.05.764586
+  url: "https://www.biorxiv.org/content/10.64898/2026.11.05.764586v1"
   authors:
     - given-names: Ashrafur
       family-names: Rahman
