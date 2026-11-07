@@ -1,5 +1,10 @@
 # QRAFT
 
+**Species trees from gene trees by quartet regrafting, at the scale of a million taxa.**
+
+[![License: AGPL v3](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
+[![Preprint: bioRxiv](https://img.shields.io/badge/preprint-bioRxiv-b31b1b.svg)](https://doi.org/10.64898/2026.11.05.764586)
+[![Latest release](https://img.shields.io/github/v/release/risenfromashes/qraft)](https://github.com/risenfromashes/qraft/releases/latest)
 
 QRAFT (Quartet Regrafting) infers a species tree from gene trees. It looks for
 the species tree that agrees with the most gene-tree quartets, counting every
@@ -209,16 +214,44 @@ under Wine). Unpack an archive and run its install check as shown under
 
 ## Citing QRAFT
 
+If you use QRAFT, please cite the preprint. GitHub's "Cite this repository"
+button reads [CITATION.cff](CITATION.cff).
+
 Ashrafur Rahman, Anik Saha and Md. Shamsuzzoha Bayzid. QRAFT: Scaling
 coalescent-based species tree inference to one million taxa. bioRxiv, 2026.
 doi:[10.64898/2026.11.05.764586](https://doi.org/10.64898/2026.11.05.764586).
 
-`CITATION.cff` holds the same reference in machine-readable form. If you
-simulate the datasets, please also cite SimPhy-X (Anik Saha, Ashrafur Rahman and
-Md. Shamsuzzoha Bayzid, in preparation; <https://github.com/aaniksahaa/simphy-x>)
-and SimPhy (Diego Mallo, Leonardo de Oliveira Martins and David Posada, SimPhy:
-phylogenomic simulation of gene, locus, and species trees, Systematic Biology
-65(2):334-344, 2016).
+```bibtex
+@article{rahman2026qraft,
+  author  = {Rahman, Ashrafur and Saha, Anik and Bayzid, Md. Shamsuzzoha},
+  title   = {{QRAFT}: Scaling coalescent-based species tree inference to one million taxa},
+  journal = {bioRxiv},
+  year    = {2026},
+  doi     = {10.64898/2026.11.05.764586}
+}
+```
+
+If you simulate the datasets, please also cite SimPhy-X and SimPhy:
+
+```bibtex
+@article{saha2026simphyx,
+  author  = {Saha, Anik and Rahman, Ashrafur and Bayzid, Md. Shamsuzzoha},
+  title   = {{SimPhy-X}: Scalable, parallel and {SimPhy}-compatible simulation of species, locus and gene trees},
+  note    = {Software: https://github.com/aaniksahaa/simphy-x},
+  year    = {2026}
+}
+
+@article{mallo2016simphy,
+  author  = {Mallo, Diego and De Oliveira Martins, Leonardo and Posada, David},
+  title   = {{SimPhy}: Phylogenomic Simulation of Gene, Locus, and Species Trees},
+  journal = {Systematic Biology},
+  volume  = {65},
+  number  = {2},
+  pages   = {334--344},
+  year    = {2016},
+  doi     = {10.1093/sysbio/syv082}
+}
+```
 
 ## Data
 
