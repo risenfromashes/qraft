@@ -222,10 +222,11 @@ phylogenomic simulation of gene, locus, and species trees, Systematic Biology
 
 ## Data
 
-Outputs and logs of the paper's experiments:
-<https://huggingface.co/datasets/risenfromashes/qraft-data> (CC BY 4.0), in
-preparation. The simulated gene trees can be regenerated with the scripts in
-`simulation/`; see [Simulating the datasets](#simulating-the-datasets).
+Outputs and logs of the paper's experiments (bioRxiv,
+doi:[10.64898/2026.11.05.764586](https://doi.org/10.64898/2026.11.05.764586)):
+<https://huggingface.co/datasets/risenfromashes/qraft-data> (CC BY 4.0). The
+simulated gene trees can be regenerated with the scripts in `simulation/`; see
+[Simulating the datasets](#simulating-the-datasets).
 
 ## License
 
