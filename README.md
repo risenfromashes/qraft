@@ -21,29 +21,66 @@ minutes.
 
 ## Install
 
-Download the release archive for your system, unpack it, and check it.
+Each release has binaries for Linux (x86-64 and ARM64), macOS (Apple silicon,
+macOS 12 or later) and Windows (x86-64). Download the archive for your system
+and `SHA256SUMS`, check the archive, unpack it and run its install check (the
+built-in selftest and the example).
 
 Linux (x86-64):
 
 ```bash
-tar xf qraft-1.0.0-linux-x86_64.tar.gz
-cd qraft-1.0.0-linux-x86_64
-./install-check.sh          # runs the built-in selftest and the example
-export PATH="$PWD/bin:$PATH"
+curl -LO https://github.com/risenfromashes/qraft/releases/latest/download/qraft-linux-x86_64.tar.gz
+curl -LO https://github.com/risenfromashes/qraft/releases/latest/download/SHA256SUMS
+grep qraft-linux-x86_64.tar.gz SHA256SUMS | sha256sum -c
+tar xf qraft-linux-x86_64.tar.gz
+qraft-linux-x86_64/install-check.sh
+export PATH="$PWD/qraft-linux-x86_64/bin:$PATH"
 ```
 
-Windows (x86-64): unzip `qraft-1.0.0-windows-x86_64.zip`, then in a Command
-Prompt in that folder:
+On ARM64 Linux, write `qraft-linux-aarch64` for `qraft-linux-x86_64`. With
+wget, write `wget` for `curl -LO`.
 
-```bat
-install-check.cmd
-qraft -i examples\genes-100taxa.tre -o species.tre
+macOS (Apple silicon):
+
+```bash
+curl -LO https://github.com/risenfromashes/qraft/releases/latest/download/qraft-macos-arm64.tar.gz
+curl -LO https://github.com/risenfromashes/qraft/releases/latest/download/SHA256SUMS
+grep qraft-macos-arm64.tar.gz SHA256SUMS | shasum -a 256 -c
+tar xf qraft-macos-arm64.tar.gz
+qraft-macos-arm64/install-check.sh
+export PATH="$PWD/qraft-macos-arm64/bin:$PATH"
 ```
 
-Both binaries are static: they need no libraries, and they infer the same trees.
-The Linux binary uses jemalloc as its memory allocator and the Windows binary
-the system allocator, so Windows runs may take longer. On Windows, keep file
-paths to plain ASCII characters.
+The macOS binary is not notarized by Apple. Downloaded with curl it runs as
+it is, but if you download the archive with a web browser, macOS blocks it:
+clear the block with `xattr -dr com.apple.quarantine qraft-macos-arm64`, or
+allow it once under System Settings → Privacy & Security.
+
+Windows (x86-64), in PowerShell:
+
+```powershell
+curl.exe -LO https://github.com/risenfromashes/qraft/releases/latest/download/qraft-windows-x86_64.zip
+curl.exe -LO https://github.com/risenfromashes/qraft/releases/latest/download/SHA256SUMS
+(Get-FileHash qraft-windows-x86_64.zip).Hash -eq (Select-String -SimpleMatch qraft-windows-x86_64.zip SHA256SUMS).Line.Split()[0]
+Expand-Archive qraft-windows-x86_64.zip -DestinationPath .
+cd qraft-windows-x86_64
+.\install-check.cmd
+.\qraft.exe -i examples\genes-100taxa.tre -o species.tre
+```
+
+The third line prints `True` when the archive is intact.
+
+These links fetch the latest release. For a fixed version, write
+`download/v1.0.2` (or another version tag) for `latest/download`. Every
+release uses the same file names, so keep downloads of different releases in
+separate folders; `qraft --version` and the archive's `BUILDINFO.txt` name the
+version.
+
+The Linux and Windows binaries are static and need no libraries; the macOS
+binary uses only the libraries that come with macOS. All of them infer the
+same trees. The Linux binaries use jemalloc as their memory allocator and the
+macOS and Windows binaries the system allocator, so Windows runs may take
+longer. On Windows, keep file paths to plain ASCII characters.
 
 To build QRAFT yourself, see [Building from source](#building-from-source).
 
@@ -163,7 +200,7 @@ simulation/paper-datasets.sh scalability --simphy-bin ./simphy-x-1.0.0-linux-x86
 QRAFT needs CMake 3.20 or newer and a C++20 compiler (tested with GCC 13 and
 14). Its one dependency, Taskflow, comes as a git submodule.
 
-Linux (x86-64), on Debian 13 or Ubuntu 24.04:
+Linux (x86-64 or ARM64), on Debian 13 or Ubuntu 24.04:
 
 ```bash
 sudo apt-get update && sudo apt-get install -y g++ cmake git python3 libjemalloc-dev
@@ -197,21 +234,38 @@ cmake --build build-windows --target qraft -j 4
 This writes `build-windows/qraft.exe`, a static binary. Copy it to Windows and
 run `qraft selftest` there.
 
-macOS is not supported yet.
+macOS (Apple silicon), with Xcode's command line tools and CMake (for example
+from Homebrew). macOS has no static C library, so build without the static
+profile and jemalloc:
 
-The release archives are built by `release/build-release.sh` in a Docker image
-pinned to a fixed Debian image and package snapshot, so the same commit gives
-the same archives:
+```bash
+git clone --recursive https://github.com/risenfromashes/qraft.git
+cd qraft
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DQRAFT_STATIC_EXECUTABLE=OFF -DQRAFT_USE_JEMALLOC=OFF
+cmake --build build --target qraft -j 4
+build/qraft selftest
+```
+
+The release archives are built by GitHub Actions
+(`.github/workflows/release.yml`) when a version tag is pushed: the Linux and
+Windows archives by `release/build-release.sh`, in a Docker image pinned to a
+fixed Debian image and package snapshot, so the same commit gives the same
+archives, and the macOS archive by `release/build-macos.sh` on a GitHub macOS
+runner. Each archive is then checked on its own system, the four binaries must
+infer the same trees, and the release is created as a draft that a maintainer
+publishes. `release/names.sh` sets the archive names. To build the Linux and
+Windows archives yourself:
 
 ```bash
 release/build-release.sh dist     # needs Docker; JOBS=4 limits the build to 4 CPUs
 cd dist && sha256sum -c SHA256SUMS
 ```
 
-It writes `qraft-1.0.0-linux-x86_64.tar.gz`, `qraft-1.0.0-windows-x86_64.zip`
-and `SHA256SUMS`, and checks each binary with its selftest (the Windows one
-under Wine). Unpack an archive and run its install check as shown under
-[Install](#install).
+On x86-64 it writes `qraft-linux-x86_64.tar.gz`,
+`qraft-windows-x86_64.zip` and `SHA256SUMS`, on ARM64
+`qraft-linux-aarch64.tar.gz` and `SHA256SUMS`, and it checks each binary with
+its selftest (the Windows one under Wine). Unpack an archive and run its
+install check as shown under [Install](#install).
 
 ## Citing QRAFT
 

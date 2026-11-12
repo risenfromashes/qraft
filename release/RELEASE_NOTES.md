@@ -1,3 +1,42 @@
+# QRAFT 1.0.2
+
+- Binaries for two more systems: Linux on ARM64 (aarch64) and macOS on Apple
+  silicon (macOS 12 or later). All four binaries infer the same trees.
+- The release archives have the same names in every release, without the
+  version: `qraft-linux-x86_64.tar.gz`, `qraft-linux-aarch64.tar.gz`,
+  `qraft-macos-arm64.tar.gz` and `qraft-windows-x86_64.zip`, each unpacking
+  into a folder of the same name. The download links of the latest release
+  stay the same (see Install in the README); `qraft --version` and
+  `BUILDINFO.txt` name the version.
+- Releases are built and checked by GitHub Actions when a version tag is
+  pushed (`.github/workflows/release.yml`).
+- Builds with GCC and clang compile without floating-point contraction
+  (`-ffp-contract=off`), so fused multiply-adds on ARM64 cannot change a
+  score. The trees on x86-64 are unchanged.
+
+## Release archives
+
+- `qraft-linux-x86_64.tar.gz` and `qraft-linux-aarch64.tar.gz`: static
+  binaries for Linux on x86-64 and ARM64, the man page, shell completions, a
+  small example and `install-check.sh`.
+- `qraft-macos-arm64.tar.gz`: a binary for macOS 12 or later on Apple
+  silicon, with the same files. It is not notarized by Apple; see Install in
+  the README for archives downloaded with a web browser.
+- `qraft-windows-x86_64.zip`: a static `qraft.exe` for x86-64 Windows, the
+  same example and `install-check.cmd`.
+
+Each holds the license, the third-party notices with the license texts of the
+code linked into its binary (`licenses/`) and `BUILDINFO.txt`, which names the
+compiler and packages. `SHA256SUMS` holds the checksums of all four.
+
+```bash
+curl -LO https://github.com/risenfromashes/qraft/releases/download/v1.0.2/qraft-linux-x86_64.tar.gz
+curl -LO https://github.com/risenfromashes/qraft/releases/download/v1.0.2/SHA256SUMS
+grep qraft-linux-x86_64.tar.gz SHA256SUMS | sha256sum -c
+tar xf qraft-linux-x86_64.tar.gz
+qraft-linux-x86_64/install-check.sh
+```
+
 # QRAFT 1.0.1
 
 - `--guide-tree` now always seeds the starting tree: the majority-rule
