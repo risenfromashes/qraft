@@ -2265,7 +2265,7 @@ StartingTree build_mre_tree(const std::vector<GeneIndex>& genes,
       note_assembly_progress();
       continue;
     }
-    // --guide-seed: the cluster this split would add, the taxa of the
+    // With a guide tree: the cluster this split would add, the taxa of the
     // contained children, must not conflict with the guide.
     if (guide != nullptr) {
       std::vector<int> taxa;

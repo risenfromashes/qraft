@@ -59,14 +59,11 @@ struct Options {
   /// Newick file holding each taxon once, used in place of the MRE starting
   /// tree when set.
   std::string starting_tree_path;
-  /// Newick guide tree on some or all taxa, when set. The starting tree
-  /// loses its edges that conflict with the guide on the shared taxa and
-  /// gains the guide bipartitions that keep its polytomies' arms whole.
+  /// Newick guide tree on some or all taxa, when set. The MRE starting tree
+  /// is built without the clusters that conflict with the guide on the
+  /// shared taxa, then gains the guide bipartitions that keep its
+  /// polytomies' arms whole. Not with starting_tree_path.
   std::string guide_tree_path;
-  /// Builds the MRE consensus without the clusters that conflict with the
-  /// guide, when set; the guide then refines it as above. Needs
-  /// guide_tree_path and no starting_tree_path.
-  bool guide_seed = false;
   /// Refines the starting tree first, as a run with divide off in extended
   /// mode at the default SPR settings does (unbounded batched NNI, then SPR
   /// refinement), and runs from it: the refined MRE of the ablations. Each

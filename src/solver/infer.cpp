@@ -281,7 +281,6 @@ std::string startup_settings_summary(const Options& options) {
       << " nni_batch=" << flag(options.nni_batch)
       << " spr_refine=" << flag(options.spr_refine)
       << " guide_tree=" << flag(!options.guide_tree_path.empty())
-      << " guide_seed=" << flag(options.guide_seed)
       << " refine_start=" << flag(options.refine_start)
       << " support=" << support_name(options);
   return out.str();
@@ -440,7 +439,6 @@ void write_stats_json(const Options& options, const SolverContext& ctx) {
   out << "  \"spr_candidates\": " << options.spr_candidates << ",\n";
   out << "  \"spr_max_rounds\": " << options.spr_rounds << ",\n";
   out << "  \"guide_tree\": " << flag(!options.guide_tree_path.empty()) << ",\n";
-  out << "  \"guide_seed\": " << flag(options.guide_seed) << ",\n";
   out << "  \"refine_start\": " << flag(options.refine_start) << ",\n";
   out << "  \"support\": \"" << support_name(options) << "\",\n";
   const RunStats& stats = run_stats();
@@ -575,11 +573,10 @@ SpeciesTree infer_species_tree(std::vector<GeneTree> genes, const Options& optio
   internal::progress_startup_status(
       run_options, "starting-tree",
       startup_settings + " building MRE");
-  if (run_options.guide_seed &&
-      (run_options.guide_tree_path.empty() ||
-       !run_options.starting_tree_path.empty())) {
+  if (!run_options.guide_tree_path.empty() &&
+      !run_options.starting_tree_path.empty()) {
     throw std::invalid_argument(
-        "guide_seed needs a guide tree and builds the MRE, so not with a "
+        "a guide tree seeds the MRE, so it cannot be combined with a "
         "starting tree file");
   }
   std::optional<Tree> guide_tree;
@@ -594,9 +591,9 @@ SpeciesTree infer_species_tree(std::vector<GeneTree> genes, const Options& optio
     guide_tree = parse_newick(guide_text);
   }
   if (run_options.starting_tree_path.empty()) {
-    // --guide-seed: the MRE skips the clusters that conflict with the guide.
+    // With a guide tree the MRE skips the clusters that conflict with it.
     std::unique_ptr<internal::GuideFilter> guide_filter;
-    if (run_options.guide_seed && guide_tree) {
+    if (guide_tree) {
       guide_filter = std::make_unique<internal::GuideFilter>(*guide_tree, ctx.taxa);
     }
     ctx.starting_tree = internal::build_mre_tree(

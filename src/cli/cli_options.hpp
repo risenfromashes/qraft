@@ -29,6 +29,7 @@ struct CliState {
   qraft::Options options;
   Verbosity verbosity = Verbosity::Normal;
   bool progress_given = false;  ///< --progress or --no-progress was given
+  bool guide_seed_given = false;  ///< --guide-seed, a no-op kept for old command lines
   bool help = false;
   std::vector<std::string> positionals;
 };

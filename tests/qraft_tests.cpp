@@ -4947,7 +4947,7 @@ void test_guide_tree() {
   std::cout << "guide tree: 300 random cases, " << changed << " changed; 5 fixed cases match\n";
 }
 
-// --guide-seed: the MRE built with the guide filter agrees with the guide on
+// --guide-tree seeding: the MRE built with the guide filter agrees with the guide on
 // the shared taxa, so the guide contracts none of its edges, and after the
 // refinement the starting tree displays every guide split on those taxa.
 void test_guide_seed() {

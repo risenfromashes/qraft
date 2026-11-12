@@ -133,6 +133,9 @@ expect(2 err "--mode is not an option of 'qraft check'" check "${genes}" --mode 
 expect(2 err "unexpected argument: extra.tre" -i "${genes}" extra.tre)
 expect(2 err "--support-detail needs --support localpp" -i "${genes}" --support-detail)
 expect(2 err "--guide-seed needs --guide-tree" -i "${genes}" --guide-seed)
+file(WRITE "${dir}/some_guide.tre" "((A,B),(C,D));\n")
+expect(2 err "--guide-tree and --starting-tree cannot be combined"
+       -i "${genes}" --guide-tree some_guide.tre --starting-tree some_guide.tre)
 expect(1 err "cannot write the output file '/nonexistent-qraft-dir/out.tre': the folder"
        -i "${genes}" -o /nonexistent-qraft-dir/out.tre)
 expect(1 err "cannot read the guide tree file 'noguide.tre'" -i "${genes}" --guide-tree noguide.tre)
@@ -150,6 +153,16 @@ execute_process(COMMAND ln -sf /nonexistent-qraft-dir/linked.tre "${dir}/danglin
 expect(1 err "cannot write the output file 'dangling.tre': the folder '/nonexistent-qraft-dir'"
        -i "${genes}" -o dangling.tre)
 expect(2 err "Usage:" )
+
+# --guide-seed is a no-op kept for old command lines: a note, and the tree of
+# plain --guide-tree.
+run(-i "${genes}" -o noop_guide.tre -q -t 2)
+run(-i "${genes}" -o noop_plain.tre -t 2 --guide-tree noop_guide.tre)
+run(-i "${genes}" -o noop_seed.tre -t 2 --guide-tree noop_guide.tre --guide-seed)
+if(NOT code EQUAL 0 OR NOT err MATCHES "--guide-seed has no effect since 1.0.1")
+  message(FATAL_ERROR "--guide-seed: expected status 0 and the no-op note; got ${code}: ${err}")
+endif()
+same_file("${dir}/noop_plain.tre" "${dir}/noop_seed.tre" "--guide-seed is a no-op")
 
 # Quiet runs print nothing on standard error, even with --progress.
 run(-i "${genes}" -o quiet.tre -q -t 2)

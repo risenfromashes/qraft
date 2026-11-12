@@ -162,16 +162,16 @@ const std::vector<OptionSpec>& option_table() {
        }},
       // Guide tree.
       {"--guide-tree", nullptr, "PATH", nullptr, "Guide tree", kInfer, true,
-       "edit the starting tree with a guide tree on some or all taxa: "
-       "contract its edges that conflict with the guide on the shared taxa, "
-       "then refine its polytomies with the guide bipartitions that keep "
-       "their arms whole; the run then goes on as usual",
+       "seed the starting tree with a guide tree on some or all taxa: build "
+       "the MRE consensus without the clusters that conflict with the guide "
+       "on the shared taxa, then refine its polytomies with the guide "
+       "bipartitions that keep their arms whole; the run then goes on as "
+       "usual (not with --starting-tree)",
        [](CliState& s, const std::string& v) { s.options.guide_tree_path = v; }},
       {"--guide-seed", nullptr, nullptr, nullptr, "Guide tree", kInfer, false,
-       "with --guide-tree and no --starting-tree, build the MRE consensus "
-       "without the clusters that conflict with the guide, then refine it "
-       "with the guide",
-       [](CliState& s, const std::string&) { s.options.guide_seed = true; }},
+       "no effect since 1.0.1, when --guide-tree began to seed the starting "
+       "tree; kept so that older command lines still run",
+       [](CliState& s, const std::string&) { s.guide_seed_given = true; }},
       {"--write-starting-tree", nullptr, "PATH", nullptr, "Guide tree", kInfer,
        false, "write the starting tree used, after --guide-tree",
        [](CliState& s, const std::string& v) {

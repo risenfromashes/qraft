@@ -1,7 +1,7 @@
 cff-version: 1.2.0
 message: "If you use QRAFT, please cite the preprint below."
 title: QRAFT
-version: 1.0.0
+version: 1.0.1
 license: AGPL-3.0-or-later
 authors:
   - given-names: Ashrafur

@@ -103,8 +103,10 @@ Every option is listed by `qraft help options` and in the man page
 - **Extended mode** (`--mode extended`): the same, then unbounded batched
   NNI and an exact SPR refinement. It is slower and meant for noisy biological
   data.
-- **Guide tree** (`--guide-tree PATH`): edits the starting tree with a trusted
-  tree on some or all taxa before the run.
+- **Guide tree** (`--guide-tree PATH`): seeds the starting tree with a trusted
+  tree on some or all taxa: the consensus leaves out the gene-tree clusters
+  that conflict with it, and its bipartitions refine the polytomies. Not with
+  `--starting-tree`.
 - **Branch support** (`--support localpp`): local posterior probability and
   length in coalescent units on every internal edge whose ends are binary.
 - **Refined starting tree** (`--refine-start`), the refined-MRE ablation of

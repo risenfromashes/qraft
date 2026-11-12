@@ -159,8 +159,9 @@ std::string topic_help(const std::string& topic) {
            render_options(kInfer, false, "Extended mode");
   }
   if (topic == "guide") {
-    return "A guide tree (for example a trusted backbone on some taxa) edits "
-           "the starting\ntree before the run.\n" +
+    return "A guide tree (for example a trusted backbone on some taxa) seeds "
+           "the starting\ntree: the consensus leaves out the clusters that "
+           "conflict with it, and its\nbipartitions refine the polytomies.\n" +
            render_options(kInfer, false, "Guide tree");
   }
   if (topic == "support") {
@@ -307,11 +308,17 @@ int run_inference(int begin, int argc, char** argv, bool support_command) {
   if (options.support_detail && options.support == qraft::SupportMode::None) {
     throw UsageError("--support-detail needs --support localpp");
   }
-  if (options.guide_seed &&
-      (options.guide_tree_path.empty() || !options.starting_tree_path.empty())) {
+  if (!options.guide_tree_path.empty() && !options.starting_tree_path.empty()) {
     throw UsageError(
-        "--guide-seed needs --guide-tree and builds the MRE, so not with "
-        "--starting-tree");
+        "--guide-tree and --starting-tree cannot be combined: the guide "
+        "seeds QRAFT's own starting tree; give one or the other");
+  }
+  if (s.guide_seed_given) {
+    if (options.guide_tree_path.empty()) throw UsageError("--guide-seed needs --guide-tree");
+    if (s.verbosity != Verbosity::Quiet) {
+      std::cerr << "qraft: note: --guide-seed has no effect since 1.0.1; "
+                   "--guide-tree always seeds the starting tree\n";
+    }
   }
   if (s.verbosity == Verbosity::Quiet) {
     options.progress = qraft::ProgressMode::Off;

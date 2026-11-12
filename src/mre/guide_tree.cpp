@@ -1,11 +1,12 @@
 // Guide tree (--guide-tree): edits the starting tree with a guide tree on
-// some or all of the taxa. First, every starting-tree edge whose
-// bipartition, restricted to the taxa both trees hold, conflicts with a guide
-// bipartition is contracted. Then each polytomy is refined by the guide
-// clusters that keep its arms whole and are bipartitions of the whole guide
-// on the shared taxa. The result keeps every other starting-tree bipartition
-// and adds only guide bipartitions; the divide then runs from it as from any
-// starting tree.
+// some or all of the taxa. The run builds the MRE without the clusters that
+// conflict with the guide (GuideFilter), so the first step below finds
+// nothing there; it contracts every starting-tree edge whose bipartition,
+// restricted to the taxa both trees hold, conflicts with a guide bipartition.
+// Then each polytomy is refined by the guide clusters that keep its arms
+// whole and are bipartitions of the whole guide on the shared taxa. The
+// result keeps every other starting-tree bipartition and adds only guide
+// bipartitions; the divide then runs from it as from any starting tree.
 //
 // Every step applies its groups and keeps children in a fixed order, so the
 // guided tree depends only on the starting tree and the guide.

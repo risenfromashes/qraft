@@ -592,8 +592,8 @@ GeneIndex restrict_gene_by_taxon(const GeneIndex& gene,
 GeneIndex restrict_gene_by_local(const GeneIndex& gene,
                                  const std::vector<int>& local_to_local);
 
-/// --guide-seed: rejects the clusters that conflict with a guide tree on the
-/// taxa both hold.
+/// --guide-tree: while the MRE is built, rejects the clusters that conflict
+/// with the guide tree on the taxa both hold.
 class GuideFilter {
  public:
   GuideFilter(const Tree& guide, const TaxonRegistry& taxa);
