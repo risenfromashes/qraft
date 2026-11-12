@@ -8,8 +8,7 @@
 
 QRAFT (Quartet Regrafting) infers a species tree from gene trees. It looks for
 the species tree that agrees with the most gene-tree quartets, counting every
-quartet exactly, and it scales to very large datasets. The tree it returns does
-not depend on the number of threads.
+quartet exactly, and it scales to very large datasets.
 
 - Input: gene trees, one Newick tree per line. Gene trees may miss taxa or
   hold several copies of a taxon.
