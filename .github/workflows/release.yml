@@ -1,0 +1,252 @@
+name: release
+
+# Builds, checks and packs the four release archives. It runs only when a
+# version tag (v*) is pushed, and then also creates a draft release with the
+# archives for a maintainer to publish, or when started by hand from the
+# Actions tab, which only keeps the archives as a workflow artifact.
+#
+# The archives' names come from release/names.sh; every job here takes
+# whatever files the release scripts write.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # The static Linux binaries in the pinned Debian image (release/Dockerfile),
+  # on each architecture natively, and the Windows binary, cross-compiled
+  # with MinGW-w64 on x86-64 and checked under Wine.
+  build-linux:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-24.04
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: true
+          persist-credentials: false
+      - name: Build the archives
+        run: release/build-release.sh dist
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: archives-linux-${{ matrix.arch }}
+          path: |
+            dist/*.tar.gz
+            dist/*.zip
+          if-no-files-found: error
+          retention-days: 30
+
+  # The macOS arm64 binary with Apple clang, for macOS 12 or later.
+  build-macos:
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: true
+          persist-credentials: false
+      - name: Build the archive
+        run: release/build-macos.sh dist
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: archives-macos-arm64
+          path: dist/*.tar.gz
+          if-no-files-found: error
+          retention-days: 30
+
+  # All archives in one place, with SHA256SUMS.
+  checksums:
+    needs: [build-linux, build-macos]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: archives-*
+          path: files
+          merge-multiple: true
+      - name: Write SHA256SUMS
+        run: release/checksums.sh files
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-files
+          path: files/
+          if-no-files-found: error
+          retention-days: 30
+
+  # Each archive on its own system, as a user gets it: the checksum, the
+  # install check, the pinned trees of every mode (tests/cli_ablations.cmake)
+  # and the hashes of a set of trees and supports for the comparison below.
+  check:
+    needs: checksums
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux-x86_64
+            runner: ubuntu-24.04
+          - target: linux-aarch64
+            runner: ubuntu-24.04-arm
+          - target: macos-arm64
+            runner: macos-15
+          - target: windows-x86_64
+            runner: windows-2022
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    env:
+      TARGET: ${{ matrix.target }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-files
+          path: files
+      - name: Name the archive
+        run: |
+          . release/names.sh
+          . release/stage.sh
+          version=$(release_version .)
+          echo "FILE=$(archive_file "$TARGET" "$version")" >> "$GITHUB_ENV"
+          echo "NAME=$(archive_name "$TARGET" "$version")" >> "$GITHUB_ENV"
+      - name: Check the checksum
+        working-directory: files
+        run: |
+          if [ "$RUNNER_OS" = macOS ]; then
+            grep " $FILE\$" SHA256SUMS | shasum -a 256 -c
+          else
+            grep " $FILE\$" SHA256SUMS | sha256sum -c
+          fi
+      - name: Check the checksum with PowerShell
+        if: runner.os == 'Windows'
+        shell: pwsh
+        working-directory: files
+        run: |
+          $line = Select-String -Path SHA256SUMS -SimpleMatch $env:FILE
+          if ((Get-FileHash $env:FILE).Hash -ne $line.Line.Split()[0]) { throw "checksum mismatch" }
+      - name: Unpack and run the install check
+        if: runner.os != 'Windows'
+        working-directory: files
+        run: |
+          tar xf "$FILE"
+          "$NAME/install-check.sh"
+          echo "QRAFT=$PWD/$NAME/bin/qraft" >> "$GITHUB_ENV"
+      - name: Unpack
+        if: runner.os == 'Windows'
+        shell: pwsh
+        working-directory: files
+        run: |
+          Expand-Archive -Path $env:FILE -DestinationPath .
+          "QRAFT=$PWD\$env:NAME\qraft.exe" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - name: Run the install check
+        if: runner.os == 'Windows'
+        shell: cmd
+        working-directory: files
+        run: call "%NAME%\install-check.cmd"
+      - name: Check the pinned trees of every mode
+        if: runner.os != 'Windows'
+        run: |
+          cmake "-DQRAFT_CLI=$QRAFT" "-DQRAFT_SOURCE_DIR=$PWD" \
+            "-DQRAFT_CLI_TEST_DIR=$RUNNER_TEMP/ablations" -P tests/cli_ablations.cmake
+      - name: Check the pinned trees of every mode
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          cmake "-DQRAFT_CLI=$env:QRAFT" "-DQRAFT_SOURCE_DIR=$PWD" `
+            "-DQRAFT_CLI_TEST_DIR=$env:RUNNER_TEMP/ablations" -P tests/cli_ablations.cmake
+          if ($LASTEXITCODE -ne 0) { throw "tests/cli_ablations.cmake failed" }
+      - name: Hash trees and supports
+        run: |
+          qraft=$QRAFT
+          if [ "$RUNNER_OS" = Windows ]; then qraft=$(cygpath -u "$QRAFT"); fi
+          mkdir -p checks
+          release/tree-hashes.sh "$qraft" "checks/trees-$TARGET.txt"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: trees-${{ matrix.target }}
+          path: checks/
+          if-no-files-found: error
+          retention-days: 30
+
+  # The four binaries must infer the same trees and supports.
+  compare:
+    needs: check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: trees-*
+          path: checks
+          merge-multiple: true
+      - name: Compare the tree hashes of the four binaries
+        working-directory: checks
+        run: |
+          ls
+          test "$(ls trees-*.txt | wc -l)" -eq 4
+          for f in trees-*.txt; do
+            if ! cmp -s trees-linux-x86_64.txt "$f"; then
+              echo "$f differs from trees-linux-x86_64.txt:"
+              diff trees-linux-x86_64.txt "$f" || true
+              exit 1
+            fi
+          done
+          echo "the four binaries infer the same trees and supports"
+
+  # On a version tag only: a draft release with the archives and SHA256SUMS,
+  # for a maintainer to read and publish.
+  release:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: compare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-files
+          path: files
+      - name: Check that the tag names the version
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          . release/stage.sh
+          version=$(release_version .)
+          if [ "$TAG" != "v$version" ]; then
+            echo "the tag $TAG does not match version $version in CMakeLists.txt" >&2
+            exit 1
+          fi
+      - name: Create the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          release/release-notes.sh "${TAG#v}" > notes.md
+          (cd files && sha256sum -c SHA256SUMS)
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --draft --verify-tag \
+            --title "QRAFT ${TAG#v}" --notes-file notes.md files/*

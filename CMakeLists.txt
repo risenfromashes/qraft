@@ -62,6 +62,12 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# No fused multiply-add contraction: GCC on aarch64 and clang on Apple silicon
+# fuse a*b+c by default, which rounds differently from the separate multiply
+# and add of the x86-64 build. Every target gets it, the tests included.
+add_compile_options(
+  $<$<COMPILE_LANG_AND_ID:CXX,GNU,Clang,AppleClang>:-ffp-contract=off>)
+
 set(TF_BUILD_TESTS OFF CACHE BOOL "Build Taskflow tests" FORCE)
 set(TF_BUILD_EXAMPLES OFF CACHE BOOL "Build Taskflow examples" FORCE)
 
@@ -123,9 +129,9 @@ target_include_directories(qraft_lib
 )
 
 target_compile_options(qraft_lib PRIVATE
-  $<$<COMPILE_LANG_AND_ID:CXX,GNU,Clang>:-Wall>
-  $<$<COMPILE_LANG_AND_ID:CXX,GNU,Clang>:-Wextra>
-  $<$<COMPILE_LANG_AND_ID:CXX,GNU,Clang>:-Wpedantic>
+  $<$<COMPILE_LANG_AND_ID:CXX,GNU,Clang,AppleClang>:-Wall>
+  $<$<COMPILE_LANG_AND_ID:CXX,GNU,Clang,AppleClang>:-Wextra>
+  $<$<COMPILE_LANG_AND_ID:CXX,GNU,Clang,AppleClang>:-Wpedantic>
 )
 
 if(QRAFT_NATIVE_OPTIMIZATIONS)
@@ -266,12 +272,18 @@ if(QRAFT_BUILD_TESTS)
         "${CMAKE_CURRENT_BINARY_DIR}/qraft-compile-flags-$<CONFIG>.txt"
       CONTENT "${QRAFT_COMPILE_FLAG_MANIFEST_CONTENT}"
       TARGET qraft_lib)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "^(GNU|Clang|AppleClang)$")
+      set(QRAFT_EXPECT_FP_CONTRACT_OFF ON)
+    else()
+      set(QRAFT_EXPECT_FP_CONTRACT_OFF OFF)
+    endif()
     add_test(
       NAME qraft.generic_isa_contract
       COMMAND ${CMAKE_COMMAND}
               -DQRAFT_FLAG_MANIFEST=${CMAKE_CURRENT_BINARY_DIR}/qraft-compile-flags-$<CONFIG>.txt
               -DQRAFT_LIBRARY=$<TARGET_FILE:qraft_lib>
               -DQRAFT_NM=${CMAKE_NM}
+              -DQRAFT_EXPECT_FP_CONTRACT_OFF=${QRAFT_EXPECT_FP_CONTRACT_OFF}
               -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/generic_isa_contract.cmake)
     set_tests_properties(qraft.generic_isa_contract PROPERTIES
       LABELS "regression;portability" TIMEOUT 60)

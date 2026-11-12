@@ -54,10 +54,19 @@ void run_on_threads(int count, F&& work) {
     work(0);
     return;
   }
-  // jthreads join on unwinding, so a failed launch cannot outlive the work.
-  std::vector<std::jthread> pool;
-  pool.reserve(static_cast<std::size_t>(count - 1));
-  for (int t = 1; t < count; ++t) pool.emplace_back([&work, t] { work(t); });
+  // The pool joins its threads when it goes out of scope, on unwinding too,
+  // so a failed launch cannot outlive the work. (libc++, the C++ library of
+  // macOS, has no std::jthread by default.)
+  struct Pool {
+    std::vector<std::thread> threads;
+    ~Pool() {
+      for (std::thread& thread : threads) thread.join();
+    }
+  } pool;
+  pool.threads.reserve(static_cast<std::size_t>(count - 1));
+  for (int t = 1; t < count; ++t) {
+    pool.threads.emplace_back([&work, t] { work(t); });
+  }
   work(0);
 }
 

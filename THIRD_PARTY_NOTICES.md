@@ -1,10 +1,10 @@
 # Third-party notices
 
 QRAFT itself is under the GNU Affero General Public License, version 3 or
-later (`LICENSE`). The source tree and the release binary also contain the
+later (`LICENSE`). The source tree and the release binaries also contain the
 following third-party code and data.
 
-## Taskflow (source, as the git submodule `external/taskflow`; in the binary)
+## Taskflow (source, as the git submodule `external/taskflow`; in every binary)
 
 Used for parallel work. The build overlays one file of it (the worker lookup)
 in the build tree; the submodule itself is unchanged.
@@ -35,10 +35,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## jemalloc (in the Linux release binary, linked statically)
+## jemalloc (in the Linux release binaries, linked statically)
 
-The memory allocator of the Linux release binary. It is not part of the source
-tree, and the Windows binary does not use it.
+The memory allocator of the Linux release binaries (x86-64 and ARM64). It is
+not part of the source tree, and the macOS and Windows binaries do not use it.
 
 ```
 Copyright: 2002-present Jason Evans <jasone@canonware.com>
@@ -65,9 +65,9 @@ OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
 ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-## GNU C Library, libstdc++ and libgcc (in the Linux release binary, linked statically)
+## GNU C Library, libstdc++ and libgcc (in the Linux release binaries, linked statically)
 
-The Linux release binary is statically linked with the GNU C Library (GNU LGPL,
+Each Linux release binary is statically linked with the GNU C Library (GNU LGPL,
 version 2.1 or later) and with the GCC runtime libraries libstdc++ and libgcc
 (GNU GPL, version 3 or later, with the GCC Runtime Library Exception, which
 allows their use in binaries under any license). The release archive's
@@ -77,10 +77,17 @@ and https://gcc.gnu.org/. As the LGPL requires, the complete source of QRAFT
 is available, so the binary can be relinked with a modified C library by
 building QRAFT from source.
 
-The release archive's `licenses/` folder holds the full texts:
+Each Linux release archive's `licenses/` folder holds the full texts:
 `GPL-3.0.txt`, `LGPL-2.1.txt`, `gcc-runtime-libraries.txt` (the GCC
 copyright file, with the GCC Runtime Library Exception), `glibc.txt`,
 `jemalloc.txt` and `taskflow.txt`.
+
+## macOS system libraries (used by the macOS release binary, not included)
+
+The macOS release binary links dynamically with the C library (libSystem) and
+the C++ library (libc++) that are part of macOS; the archive holds neither.
+Its `licenses/` folder holds `taskflow.txt`, and `BUILDINFO.txt` names the
+compiler, the SDK and the libraries.
 
 ## MinGW-w64 runtime, libstdc++ and libgcc (in the Windows release binary, linked statically)
 

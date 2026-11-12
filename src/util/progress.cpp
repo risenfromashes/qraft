@@ -18,6 +18,9 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 #endif
+#if defined(__APPLE__)
+#include <sys/sysctl.h>
+#endif
 
 namespace qraft::internal {
 namespace {
@@ -197,7 +200,14 @@ int terminal_width() {
 
 /// Reads a short CPU model string for startup diagnostics.
 std::string cpu_model_name() {
-#if !defined(_WIN32)
+#if defined(__APPLE__)
+  char brand[256] = {};
+  std::size_t size = sizeof brand - 1;
+  if (sysctlbyname("machdep.cpu.brand_string", brand, &size, nullptr, 0) == 0 &&
+      brand[0] != '\0') {
+    return brand;
+  }
+#elif !defined(_WIN32)
   std::ifstream in("/proc/cpuinfo");
   std::string line;
   const std::string prefix = "model name";
