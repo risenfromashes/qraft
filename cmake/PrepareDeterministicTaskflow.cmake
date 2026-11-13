@@ -1,7 +1,16 @@
+# SHA-256 of a text file read with LF line endings. Checkouts with CRLF line
+# endings (the Git for Windows default) and CMake's own file(WRITE) on Windows
+# give the same hash as LF files.
+function(qraft_lf_sha256 path out_var)
+  file(READ "${path}" contents)
+  string(REPLACE "\r\n" "\n" contents "${contents}")
+  string(SHA256 sha256 "${contents}")
+  set(${out_var} "${sha256}" PARENT_SCOPE)
+endfunction()
+
 function(qraft_prepare_deterministic_taskflow source_root destination_root)
   set(source_executor "${source_root}/taskflow/core/executor.hpp")
-  # Hash and patch the header with LF line endings, so a checkout with CRLF
-  # line endings (the Git for Windows default) gives the same overlay.
+  # Hash and patch the header with LF line endings.
   file(READ "${source_executor}" source_contents)
   string(REPLACE "\r\n" "\n" source_contents "${source_contents}")
   string(SHA256 source_executor_sha256 "${source_contents}")
@@ -16,7 +25,7 @@ function(qraft_prepare_deterministic_taskflow source_root destination_root)
     "6bdc08848ef9a1cbb7b8c4fa5404aa8ab32e58275b4189c33a54eb1948e68928")
   set(materialize TRUE)
   if(EXISTS "${patched_executor}")
-    file(SHA256 "${patched_executor}" existing_patched_sha256)
+    qraft_lf_sha256("${patched_executor}" existing_patched_sha256)
     if(existing_patched_sha256 STREQUAL expected_patched_sha256)
       set(materialize FALSE)
     endif()
@@ -129,7 +138,7 @@ inline int Executor::this_worker_id() const {
   file(WRITE "${patched_executor}" "${contents}")
   endif()
 
-  file(SHA256 "${patched_executor}" patched_sha256)
+  qraft_lf_sha256("${patched_executor}" patched_sha256)
   if(NOT patched_sha256 STREQUAL expected_patched_sha256)
     message(FATAL_ERROR "deterministic Taskflow overlay hash mismatch")
   endif()
