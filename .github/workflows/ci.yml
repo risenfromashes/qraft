@@ -25,3 +25,32 @@ jobs:
         run: ctest --test-dir build -R '^qraft\.' -j 4 --output-on-failure
       - name: Selftest
         run: build/qraft selftest
+
+  # Native Windows build with the README commands, in an MSYS2 MINGW64 shell.
+  windows-msys2:
+    runs-on: windows-2022
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e # v2.33.0
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            git
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja
+      - name: Configure
+        run: >-
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          -DQRAFT_BUILD_TESTS=OFF -DQRAFT_USE_JEMALLOC=OFF
+      - name: Build
+        run: cmake --build build --target qraft
+      - name: Selftest
+        run: build/qraft.exe selftest
