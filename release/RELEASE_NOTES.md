@@ -1,3 +1,25 @@
+# QRAFT 1.0.3
+
+- `install.sh` in the Linux and macOS archives installs qraft, its man page
+  and shell completions in `~/.local`, or elsewhere with `--prefix DIR`;
+  `--uninstall` removes them again.
+- Packages for Linux: `qraft-linux-x86_64.deb`, `qraft-linux-aarch64.deb`,
+  `qraft-linux-x86_64.rpm` and `qraft-linux-aarch64.rpm`. They hold the same
+  static binary as the archives and need nothing else, for example
+  `sudo apt install ./qraft-linux-x86_64.deb` or
+  `sudo dnf install ./qraft-linux-x86_64.rpm`.
+- QRAFT itself is unchanged: it infers the same trees as 1.0.2.
+
+## Release files
+
+- `qraft-linux-x86_64.tar.gz`, `qraft-linux-aarch64.tar.gz` and
+  `qraft-macos-arm64.tar.gz`: the binary, the man page, shell completions, a
+  small example, `install-check.sh` and `install.sh`.
+- `qraft-windows-x86_64.zip`: `qraft.exe`, the same example and
+  `install-check.cmd`.
+- The four `.deb` and `.rpm` packages for Linux.
+- `SHA256SUMS`: the checksums of all of them.
+
 # QRAFT 1.0.2
 
 - Binaries for two more systems: Linux on ARM64 (aarch64) and macOS on Apple

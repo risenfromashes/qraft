@@ -26,7 +26,10 @@ Download the archive for your system from the
 Linux (x86-64 or ARM64), macOS (Apple silicon, macOS 12 or later) or Windows
 (x86-64). Extract it and run `bin/qraft` inside it (`qraft.exe` on Windows),
 or put that folder on your `PATH`. `install-check.sh` (`install-check.cmd` on
-Windows) runs a short self-test. On Linux, for example:
+Windows) runs a short self-test, and `install.sh` installs qraft, its man page
+and completions in `~/.local` (or `--prefix DIR`). On Debian, Ubuntu, Fedora or
+Rocky Linux you can install the release's `.deb` or `.rpm` instead. On Linux,
+for example:
 
 ```bash
 curl -L https://github.com/risenfromashes/qraft/releases/latest/download/qraft-linux-x86_64.tar.gz | tar xz

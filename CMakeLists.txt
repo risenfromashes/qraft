@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(qraft VERSION 1.0.2 LANGUAGES CXX)
+project(qraft VERSION 1.0.3 LANGUAGES CXX)
 
 option(QRAFT_BUILD_TESTS "Build QRAFT tests" ON)
 option(QRAFT_REGISTER_LONG_TESTS
