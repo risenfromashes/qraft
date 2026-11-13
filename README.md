@@ -223,29 +223,6 @@ cmake --build build --target qraft -j 4
 build/qraft selftest
 ```
 
-The release archives are built by GitHub Actions
-(`.github/workflows/release.yml`) when a version tag is pushed: the Linux and
-Windows archives and the Linux `.deb` and `.rpm` packages by
-`release/build-release.sh`, in a Docker image pinned to a fixed Debian image
-and package snapshot, so the same commit gives the same files, and the macOS
-archive by `release/build-macos.sh` on a GitHub macOS runner. Each archive is
-then checked on its own system, the packages are installed in clean Debian,
-Ubuntu, Fedora and Rocky Linux containers (`release/test-packages.sh`), the
-four binaries must infer the same trees, and the release is created as a draft
-that a maintainer publishes. `release/names.sh` sets the file names. To build
-the Linux and Windows files yourself:
-
-```bash
-release/build-release.sh dist     # needs Docker; JOBS=4 limits the build to 4 CPUs
-cd dist && sha256sum -c SHA256SUMS
-```
-
-On x86-64 it writes `qraft-linux-x86_64.tar.gz`, `qraft-linux-x86_64.deb`,
-`qraft-linux-x86_64.rpm`, `qraft-windows-x86_64.zip` and `SHA256SUMS`, on
-ARM64 the `aarch64` archive, `.deb` and `.rpm` and `SHA256SUMS`, and it checks
-each binary with its selftest (the Windows one under Wine). Unpack an archive and run its
-`install-check.sh` (`install-check.cmd` on Windows).
-
 ## Citing QRAFT
 
 If you use QRAFT, please cite the preprint. GitHub's "Cite this repository"
