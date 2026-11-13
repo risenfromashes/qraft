@@ -32,7 +32,7 @@ Debian or Ubuntu:
 sudo apt install ./qraft-linux-x86_64.deb
 ```
 
-Fedora or another Red Hat-based system:
+Fedora or other Red Hat-based system:
 
 ```bash
 sudo dnf install ./qraft-linux-x86_64.rpm
