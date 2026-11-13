@@ -1,6 +1,10 @@
 function(qraft_prepare_deterministic_taskflow source_root destination_root)
   set(source_executor "${source_root}/taskflow/core/executor.hpp")
-  file(SHA256 "${source_executor}" source_executor_sha256)
+  # Hash and patch the header with LF line endings, so a checkout with CRLF
+  # line endings (the Git for Windows default) gives the same overlay.
+  file(READ "${source_executor}" source_contents)
+  string(REPLACE "\r\n" "\n" source_contents "${source_contents}")
+  string(SHA256 source_executor_sha256 "${source_contents}")
   if(NOT source_executor_sha256 STREQUAL
      "eeb9ba321e30aeb24615b4e24344aa83b77804a8bf40a340a6df7f6bf6b507d6")
     message(FATAL_ERROR
@@ -22,7 +26,7 @@ function(qraft_prepare_deterministic_taskflow source_root destination_root)
   file(REMOVE_RECURSE "${destination_root}/taskflow")
   file(MAKE_DIRECTORY "${destination_root}")
   file(COPY "${source_root}/taskflow" DESTINATION "${destination_root}")
-  file(READ "${patched_executor}" contents)
+  set(contents "${source_contents}")
 
   string(REPLACE
     "#pragma once\n"
