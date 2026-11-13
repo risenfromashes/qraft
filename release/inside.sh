@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Runs inside the release image (release/build-release.sh): copies the
 # repository to /tmp/src, then builds, checks and packs the static binary of
-# each TARGET given, and writes the archives to /out.
+# each TARGET given, and writes the archives (and for Linux the .deb and
+# .rpm) to /out.
 #
 #   inside.sh [TARGET...]
 #
@@ -18,6 +19,7 @@ git -C /repo ls-files --recurse-submodules -z | (cd /repo && xargs -0 cp --paren
 cp -a /repo/.git "$src/.git"
 . "$src/release/names.sh"
 . "$src/release/stage.sh"
+. "$src/release/packages.sh"
 version=$(release_version "$src")
 jobs=${JOBS:-$(nproc)}
 image=$(sed -n 's/^FROM //p' "$src/release/Dockerfile")
@@ -59,6 +61,9 @@ build_linux() {
     build_info g++ libc6-dev libstdc++-14-dev libjemalloc-dev cmake binutils
   } > "$dir/BUILDINFO.txt"
   pack "$target" "$version" "$stage" /out "$src"
+  # The .deb and .rpm, from the same staged files (release/packages.sh).
+  make_deb "$dir" "$target" "$version" /out
+  make_rpm "$dir" "$target" "$version" /out
 }
 
 # Windows x86-64: cross-compiled with MinGW-w64, static, with the system

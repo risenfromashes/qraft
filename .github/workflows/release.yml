@@ -20,9 +20,9 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # The static Linux binaries in the pinned Debian image (release/Dockerfile),
-  # on each architecture natively, and the Windows binary, cross-compiled
-  # with MinGW-w64 on x86-64 and checked under Wine.
+  # The static Linux binaries and their .deb and .rpm in the pinned Debian
+  # image (release/Dockerfile), on each architecture natively, and the Windows
+  # binary, cross-compiled with MinGW-w64 on x86-64 and checked under Wine.
   build-linux:
     strategy:
       fail-fast: false
@@ -39,7 +39,7 @@ jobs:
         with:
           submodules: true
           persist-credentials: false
-      - name: Build the archives
+      - name: Build the archives and packages
         run: release/build-release.sh dist
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -47,6 +47,8 @@ jobs:
           path: |
             dist/*.tar.gz
             dist/*.zip
+            dist/*.deb
+            dist/*.rpm
           if-no-files-found: error
           retention-days: 30
 
@@ -152,6 +154,17 @@ jobs:
           tar xf "$FILE"
           "$NAME/install-check.sh"
           echo "QRAFT=$PWD/$NAME/bin/qraft" >> "$GITHUB_ENV"
+      - name: Install with install.sh, run, uninstall
+        if: runner.os != 'Windows'
+        working-directory: files
+        run: |
+          prefix=$RUNNER_TEMP/prefix
+          "$NAME/install.sh" --prefix "$prefix"
+          "$prefix/bin/qraft" selftest -t 2
+          test -s "$prefix/share/man/man1/qraft.1"
+          test -s "$prefix/share/bash-completion/completions/qraft"
+          "$NAME/install.sh" --prefix "$prefix" --uninstall
+          test ! -e "$prefix/bin/qraft"
       - name: Unpack
         if: runner.os == 'Windows'
         shell: pwsh
@@ -214,11 +227,39 @@ jobs:
           done
           echo "the four binaries infer the same trees and supports"
 
-  # On a version tag only: a draft release with the archives and SHA256SUMS,
-  # for a maintainer to read and publish.
+  # The .deb and .rpm of each architecture, installed in clean Debian, Ubuntu,
+  # Fedora and Rocky Linux containers (release/test-packages.sh): the binary
+  # of the .tar.gz, its selftest and example tree, then removed again.
+  packages:
+    needs: checksums
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux-x86_64
+            runner: ubuntu-24.04
+          - target: linux-aarch64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-files
+          path: files
+      - name: Install and check the packages
+        env:
+          TARGET: ${{ matrix.target }}
+        run: release/test-packages.sh files "$TARGET"
+
+  # On a version tag only: a draft release with the archives, packages and
+  # SHA256SUMS, for a maintainer to read and publish.
   release:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-    needs: compare
+    needs: [compare, packages]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:

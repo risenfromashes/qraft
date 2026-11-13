@@ -18,7 +18,7 @@ stage_common() {
 
 # stage_unix DIR QRAFT SRC lays out a Linux or macOS archive in DIR: the
 # binary QRAFT as bin/qraft, its man page and shell completions, the common
-# files and install-check.sh.
+# files, install-check.sh and install.sh.
 stage_unix() {
   local dir=$1 qraft=$2 src=$3 shell
   mkdir -p "$dir/bin" "$dir/man/man1" "$dir/completions"
@@ -28,7 +28,7 @@ stage_unix() {
     "$qraft" completion "$shell" > "$dir/completions/qraft.$shell"
   done
   stage_common "$dir" "$src"
-  cp "$src/release/install-check.sh" "$dir/"
+  cp "$src/release/install-check.sh" "$src/release/install.sh" "$dir/"
 }
 
 # pack TARGET VERSION STAGE OUT SRC writes the archive of TARGET to OUT from

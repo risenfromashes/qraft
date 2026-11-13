@@ -5,7 +5,7 @@
 #
 # {target} is linux-x86_64, linux-aarch64, macos-arm64 or windows-x86_64 and
 # {version} the version in CMakeLists.txt. The archive unpacks into a folder
-# of the same name.
+# of the same name; the Linux .deb and .rpm take the same name too.
 qraft_archive_pattern='qraft-{target}'
 
 # archive_name TARGET VERSION prints the archive's name without its extension,
@@ -22,4 +22,10 @@ archive_file() {
     windows-*) printf '%s.zip\n' "$(archive_name "$1" "$2")" ;;
     *) printf '%s.tar.gz\n' "$(archive_name "$1" "$2")" ;;
   esac
+}
+
+# package_file TARGET VERSION FORMAT prints the file name of a Linux target's
+# package, FORMAT deb or rpm. The package itself carries the version.
+package_file() {
+  printf '%s.%s\n' "$(archive_name "$1" "$2")" "$3"
 }

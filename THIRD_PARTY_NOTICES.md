@@ -80,7 +80,8 @@ building QRAFT from source.
 Each Linux release archive's `licenses/` folder holds the full texts:
 `GPL-3.0.txt`, `LGPL-2.1.txt`, `gcc-runtime-libraries.txt` (the GCC
 copyright file, with the GCC Runtime Library Exception), `glibc.txt`,
-`jemalloc.txt` and `taskflow.txt`.
+`jemalloc.txt` and `taskflow.txt`. The `.deb` and `.rpm` packages, which hold
+the same binary, install them in `/usr/share/doc/qraft/licenses/`.
 
 ## macOS system libraries (used by the macOS release binary, not included)
 
