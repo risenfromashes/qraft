@@ -196,20 +196,22 @@ binary linked with jemalloc, so it needs jemalloc's static library
 `-DQRAFT_STATIC_EXECUTABLE=OFF -DQRAFT_USE_JEMALLOC=OFF` to the first `cmake`
 command. Python 3 is optional: it runs the checks of the counting scheme.
 
-Windows (x86-64): the Windows binary is cross-compiled on Linux with MinGW-w64.
-Building on Windows itself is not tested. On Debian 13 or Ubuntu 24.04, in the
-cloned repository:
+Windows (x86-64), in an [MSYS2](https://www.msys2.org) MINGW64 shell:
 
 ```bash
-sudo apt-get update && sudo apt-get install -y g++-mingw-w64-x86-64-posix cmake git
-cmake -S . -B build-windows -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_SYSTEM_PROCESSOR=x86_64 \
-  -DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-g++-posix -DCMAKE_BUILD_TYPE=Release \
-  -DQRAFT_BUILD_TESTS=OFF -DQRAFT_USE_JEMALLOC=OFF
-cmake --build build-windows --target qraft -j 4
+pacman -S --needed git \
+  mingw-w64-x86_64-gcc \
+  mingw-w64-x86_64-cmake \
+  mingw-w64-x86_64-ninja
+git clone --recursive https://github.com/risenfromashes/qraft.git
+cd qraft
+cmake -S . -B build -G Ninja \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DQRAFT_BUILD_TESTS=OFF \
+  -DQRAFT_USE_JEMALLOC=OFF
+cmake --build build --target qraft
+build/qraft.exe selftest
 ```
-
-This writes `build-windows/qraft.exe`, a static binary. Copy it to Windows and
-run `qraft selftest` there.
 
 macOS (Apple silicon), with Xcode's command line tools and CMake (for example
 from Homebrew). macOS has no static C library, so build without the static
