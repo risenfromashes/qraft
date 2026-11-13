@@ -6,7 +6,7 @@
 [![Preprint: bioRxiv](https://img.shields.io/badge/preprint-bioRxiv-b31b1b.svg)](https://doi.org/10.64898/2026.11.05.764586)
 [![Latest release](https://img.shields.io/github/v/release/risenfromashes/qraft)](https://github.com/risenfromashes/qraft/releases/latest)
 
-QRAFT (Quartet Regrafting) infers a species tree from gene trees. It looks for
+QRAFT (Quartet Regrafting for Accurate and Fast Species Tree Estimation) infers a species tree from gene trees. It looks for
 the species tree that agrees with the most gene-tree quartets, counting every
 quartet exactly, and it scales to very large datasets.
 
