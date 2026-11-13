@@ -21,24 +21,43 @@ minutes.
 
 ## Install
 
-Download the archive for your system from the
-[latest release](https://github.com/risenfromashes/qraft/releases/latest):
-Linux (x86-64 or ARM64), macOS (Apple silicon, macOS 12 or later) or Windows
-(x86-64). Extract it and run `bin/qraft` inside it (`qraft.exe` on Windows),
-or put that folder on your `PATH`. `install-check.sh` (`install-check.cmd` on
-Windows) runs a short self-test, and `install.sh` installs qraft, its man page
-and completions in `~/.local` (or `--prefix DIR`). On Debian, Ubuntu, Fedora or
-Rocky Linux you can install the release's `.deb` or `.rpm` instead. On Linux,
-for example:
+Download the file for your system from the
+[latest release](https://github.com/risenfromashes/qraft/releases/latest).
+
+### Linux
+
+Debian or Ubuntu:
 
 ```bash
-curl -L https://github.com/risenfromashes/qraft/releases/latest/download/qraft-linux-x86_64.tar.gz | tar xz
-qraft-linux-x86_64/bin/qraft selftest
+sudo apt install ./qraft-linux-x86_64.deb
 ```
 
-The macOS binary is not notarized: if you download it with a web browser, run
-`xattr -dr com.apple.quarantine qraft-macos-arm64` on the extracted folder
-before its first run. On Windows, keep file paths to plain ASCII characters.
+Fedora or another Red Hat-based system:
+
+```bash
+sudo dnf install ./qraft-linux-x86_64.rpm
+```
+
+On ARM64, take the `aarch64` file instead.
+
+On any distribution, you can extract the archive
+([`x86_64`](https://github.com/risenfromashes/qraft/releases/latest/download/qraft-linux-x86_64.tar.gz),
+[`aarch64`](https://github.com/risenfromashes/qraft/releases/latest/download/qraft-linux-aarch64.tar.gz))
+and run `bin/qraft`, or run `./install.sh` to install it in `~/.local`.
+
+### macOS (ARM64)
+
+Extract
+[`qraft-macos-arm64.tar.gz`](https://github.com/risenfromashes/qraft/releases/latest/download/qraft-macos-arm64.tar.gz)
+and run `bin/qraft`, or run `./install.sh` to install it in `~/.local`.
+If macOS will not open `qraft`, run
+`xattr -dr com.apple.quarantine qraft-macos-arm64` on the extracted folder.
+
+### Windows (x86-64)
+
+Extract
+[`qraft-windows-x86_64.zip`](https://github.com/risenfromashes/qraft/releases/latest/download/qraft-windows-x86_64.zip)
+and run `qraft.exe`.
 
 To build QRAFT yourself, see [Building from source](#building-from-source).
 
@@ -206,24 +225,26 @@ build/qraft selftest
 
 The release archives are built by GitHub Actions
 (`.github/workflows/release.yml`) when a version tag is pushed: the Linux and
-Windows archives by `release/build-release.sh`, in a Docker image pinned to a
-fixed Debian image and package snapshot, so the same commit gives the same
-archives, and the macOS archive by `release/build-macos.sh` on a GitHub macOS
-runner. Each archive is then checked on its own system, the four binaries must
-infer the same trees, and the release is created as a draft that a maintainer
-publishes. `release/names.sh` sets the archive names. To build the Linux and
-Windows archives yourself:
+Windows archives and the Linux `.deb` and `.rpm` packages by
+`release/build-release.sh`, in a Docker image pinned to a fixed Debian image
+and package snapshot, so the same commit gives the same files, and the macOS
+archive by `release/build-macos.sh` on a GitHub macOS runner. Each archive is
+then checked on its own system, the packages are installed in clean Debian,
+Ubuntu, Fedora and Rocky Linux containers (`release/test-packages.sh`), the
+four binaries must infer the same trees, and the release is created as a draft
+that a maintainer publishes. `release/names.sh` sets the file names. To build
+the Linux and Windows files yourself:
 
 ```bash
 release/build-release.sh dist     # needs Docker; JOBS=4 limits the build to 4 CPUs
 cd dist && sha256sum -c SHA256SUMS
 ```
 
-On x86-64 it writes `qraft-linux-x86_64.tar.gz`,
-`qraft-windows-x86_64.zip` and `SHA256SUMS`, on ARM64
-`qraft-linux-aarch64.tar.gz` and `SHA256SUMS`, and it checks each binary with
-its selftest (the Windows one under Wine). Unpack an archive and run its
-install check as shown under [Install](#install).
+On x86-64 it writes `qraft-linux-x86_64.tar.gz`, `qraft-linux-x86_64.deb`,
+`qraft-linux-x86_64.rpm`, `qraft-windows-x86_64.zip` and `SHA256SUMS`, on
+ARM64 the `aarch64` archive, `.deb` and `.rpm` and `SHA256SUMS`, and it checks
+each binary with its selftest (the Windows one under Wine). Unpack an archive and run its
+`install-check.sh` (`install-check.cmd` on Windows).
 
 ## Citing QRAFT
 
