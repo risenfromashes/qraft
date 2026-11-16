@@ -1,5 +1,7 @@
 #include "solver/solver.hpp"
 
+#include "checkpoint/checkpoint.hpp"
+
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -765,6 +767,8 @@ class DivideAndRegraft : public std::enable_shared_from_this<DivideAndRegraft> {
                    std::vector<int> taxa,
                    bool parallel,
                    TaxaLease taxa_lease) {
+    checkpoint_invocation_ = checkpoint_next_invocation('R');
+    checkpoint_note_stage(RunStage::Divide);
     root_ = std::make_unique<SubproblemFrame>();
     SubproblemFrame* root = root_.get();
     root->ctx = &ctx;
@@ -838,12 +842,22 @@ class DivideAndRegraft : public std::enable_shared_from_this<DivideAndRegraft> {
     std::vector<int>& left = frame.left;
     std::vector<int>& right = frame.right;
     {
-      BipartitionChoice split =
-          choose_bipartition(ctx, frame.taxa, frame.path, frame.depth);
-      if (control.force_shape) {
-        split.candidate = forced_candidate(active, control.shape);
+      // A journaled bipartition is replayed; a computed one is journaled
+      // before the children start.
+      Bitset side;
+      if (std::optional<Bitset> journaled =
+              checkpoint_split(checkpoint_invocation_, frame.path, active)) {
+        side = std::move(*journaled);
+        checkpoint_note_replayed();
+      } else {
+        BipartitionChoice split =
+            choose_bipartition(ctx, frame.taxa, frame.path, frame.depth);
+        if (control.force_shape) {
+          split.candidate = forced_candidate(active, control.shape);
+        }
+        side = std::move(split.candidate.split);
+        checkpoint_record_split(checkpoint_invocation_, frame.path, side);
       }
-      const Bitset& side = split.candidate.split;
       const int left_count = std::clamp(side.count(), 0, active);
       if (control.accounting) stats_add(stats.recursion_split_tests, active);
       if (left_count < 1 || left_count == active) {
@@ -992,9 +1006,7 @@ class DivideAndRegraft : public std::enable_shared_from_this<DivideAndRegraft> {
     progress_note_regraft_start(frame.active,
                                 static_cast<int>(left_taxa.values.size()),
                                 static_cast<int>(right_taxa.values.size()));
-    const auto edges =
-        choose_regraft_edges(ctx, frame.trees[0], frame.trees[1],
-                             left_taxa.values, right_taxa.values);
+    const auto edges = regraft_edges(frame, ctx, left_taxa, right_taxa);
     progress_note_regraft_done(frame.active);
     stats_add(run_stats().completed_subproblems);
     TreeLease connect_lease(
@@ -1011,6 +1023,25 @@ class DivideAndRegraft : public std::enable_shared_from_this<DivideAndRegraft> {
     TreeLease result_lease(control.accounting,
                            tree_payload(step.tree, control.accounting));
     return step;
+  }
+
+  /// The regraft edges of a subproblem whose two children are solved: the
+  /// journaled ones, or the computed ones, journaled before the subproblem's
+  /// tree is handed on.
+  std::pair<RegraftEdge, RegraftEdge> regraft_edges(
+      const SubproblemFrame& frame,
+      const SolverContext& ctx,
+      const TrackedTaxa& left_taxa,
+      const TrackedTaxa& right_taxa) {
+    if (auto journaled = checkpoint_regraft(checkpoint_invocation_, frame.path)) {
+      checkpoint_note_replayed();
+      return *journaled;
+    }
+    auto edges = choose_regraft_edges(ctx, frame.trees[0], frame.trees[1],
+                                      left_taxa.values, right_taxa.values);
+    checkpoint_record_regraft(checkpoint_invocation_, frame.path, edges.first,
+                              edges.second);
+    return edges;
   }
 
   /// Keeps a parallel subproblem's finished child and releases its context.
@@ -1044,9 +1075,7 @@ class DivideAndRegraft : public std::enable_shared_from_this<DivideAndRegraft> {
       progress_note_regraft_start(frame.active,
                                   static_cast<int>(left_taxa.values.size()),
                                   static_cast<int>(right_taxa.values.size()));
-      const auto edges =
-          choose_regraft_edges(ctx, frame.trees[0], frame.trees[1],
-                               left_taxa.values, right_taxa.values);
+      const auto edges = regraft_edges(frame, ctx, left_taxa, right_taxa);
       progress_note_regraft_done(frame.active);
       TreeLease connect_lease(
           control.accounting,
@@ -1147,6 +1176,9 @@ class DivideAndRegraft : public std::enable_shared_from_this<DivideAndRegraft> {
   }
 
   RecursionControl control_;
+  // This divide's number among the run's divides, for the journal; -1 when
+  // the run does not journal.
+  int checkpoint_invocation_ = -1;
   std::unique_ptr<SubproblemFrame> root_;
   SolverTree root_tree_;
   std::exception_ptr root_failure_;

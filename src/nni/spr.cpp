@@ -20,6 +20,8 @@
 
 #include "solver/solver.hpp"
 
+#include "checkpoint/checkpoint.hpp"
+
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -291,6 +293,29 @@ int mark_clade(const RankedClades& ranked, int v, std::vector<char>& in_clade) {
 
 }  // namespace
 
+namespace {
+
+/// A journaled regraft edge of an SPR move: the left side's (offset 0) or the
+/// right side's (offset 2).
+RegraftEdge journaled_join(const SprOutcome& outcome, int offset) {
+  RegraftEdge edge;
+  edge.a = outcome.joins[static_cast<std::size_t>(offset)];
+  edge.b = outcome.joins[static_cast<std::size_t>(offset + 1)];
+  return edge;
+}
+
+/// Replays a journaled SPR move: cuts the tree at its edge and joins the two
+/// sides at its journaled regraft edges, as the move did.
+void apply_journaled_spr_move(SolverTree& tree, const SprOutcome& outcome) {
+  CutSide left = cut_side(tree, outcome.edge_a, outcome.edge_b);
+  CutSide right = cut_side(tree, outcome.edge_b, outcome.edge_a);
+  tree = connect_at_edges(std::move(left.tree), std::move(right.tree),
+                          journaled_join(outcome, 0),
+                          journaled_join(outcome, 2));
+}
+
+}  // namespace
+
 bool refine_spr(SolverContext& ctx, SolverTree& tree,
                 const std::vector<int>& taxa) {
   if (!ctx.options.spr_refine) return false;
@@ -302,6 +327,8 @@ bool refine_spr(SolverContext& ctx, SolverTree& tree,
         "a minimum clade of at least 2 taxa");
   }
   if (taxa.size() < 4) return false;
+  const int checkpoint_invocation = checkpoint_next_invocation('S');
+  checkpoint_note_stage(RunStage::Spr);
   const auto started = std::chrono::steady_clock::now();
   progress_note_stage("spr");
   suppress_solver_degree_two(tree);
@@ -311,6 +338,24 @@ bool refine_spr(SolverContext& ctx, SolverTree& tree,
   std::vector<char> in_clade(context_taxa(ctx).size(), 0);
   for (int round = 0; round < options.spr_rounds; ++round) {
     stats_add(run_stats().spr_rounds);
+    const SprRoundLog* journaled =
+        checkpoint_spr_round(checkpoint_invocation, round);
+    int moves = 0;
+    if (journaled != nullptr && journaled->complete) {
+      // A finished round replays its moves without the skeleton pass.
+      for (const SprOutcome& outcome : journaled->outcomes) {
+        if (!outcome.moved) continue;
+        apply_journaled_spr_move(tree, outcome);
+        stats_add(run_stats().spr_moves);
+        ++moves;
+      }
+      checkpoint_note_replayed();
+      if (moves == 0) break;
+      changed = true;
+      refine_nni(ctx, tree, taxa);
+      suppress_solver_degree_two(tree);
+      continue;
+    }
     const auto pass_started = std::chrono::steady_clock::now();
     const RankedClades ranked =
         rank_clades(ctx, tree, taxa, options.spr_reads, options.spr_min_clade,
@@ -318,8 +363,11 @@ bool refine_spr(SolverContext& ctx, SolverTree& tree,
     stats_add_time(run_stats().spr_pass_ns,
                    std::chrono::duration_cast<std::chrono::nanoseconds>(
                        std::chrono::steady_clock::now() - pass_started));
-    int moves = 0;
-    for (int v : ranked.nodes) {
+    // An unfinished round recomputes its ranking and takes the journaled
+    // outcome of each candidate it already scored.
+    std::size_t next_journaled = 0;
+    for (int index = 0; index < static_cast<int>(ranked.nodes.size()); ++index) {
+      const int v = ranked.nodes[static_cast<std::size_t>(index)];
       // An earlier move of the round may have broken the clade up.
       const int clade_size = mark_clade(ranked, v, in_clade);
       int edge_a = -1, edge_b = -1;
@@ -332,6 +380,26 @@ bool refine_spr(SolverContext& ctx, SolverTree& tree,
       }
       CutSide left = cut_side(tree, edge_a, edge_b);
       CutSide right = cut_side(tree, edge_b, edge_a);
+      if (journaled != nullptr && next_journaled < journaled->outcomes.size() &&
+          journaled->outcomes[next_journaled].index == index) {
+        const SprOutcome& outcome = journaled->outcomes[next_journaled++];
+        if (outcome.edge_a != edge_a || outcome.edge_b != edge_b) {
+          throw std::logic_error(
+              "checkpoint replay: a journaled SPR candidate does not match");
+        }
+        checkpoint_note_replayed();
+        if (!outcome.moved) continue;
+        tree = connect_at_edges(std::move(left.tree), std::move(right.tree),
+                                journaled_join(outcome, 0),
+                                journaled_join(outcome, 2));
+        stats_add(run_stats().spr_moves);
+        ++moves;
+        continue;
+      }
+      SprOutcome outcome;
+      outcome.index = index;
+      outcome.edge_a = edge_a;
+      outcome.edge_b = edge_b;
       std::vector<char> left_region, right_region;
       if (polytomies) {
         left_region = join_region(left);
@@ -356,9 +424,16 @@ bool refine_spr(SolverContext& ctx, SolverTree& tree,
       // Ties and rounding stay below this relative tolerance.
       const double threshold =
           1e-9 * (std::fabs(old_left) + std::fabs(old_right) + 1.0);
-      if (!(gain > threshold)) continue;
+      if (!(gain > threshold)) {
+        checkpoint_record_spr_outcome(checkpoint_invocation, round, outcome);
+        continue;
+      }
       tree = connect_at_edges(std::move(left.tree), std::move(right.tree),
                               best.first, best.second);
+      outcome.moved = true;
+      outcome.joins = {best.first.a, best.first.b, best.second.a,
+                       best.second.b};
+      checkpoint_record_spr_outcome(checkpoint_invocation, round, outcome);
       stats_add(run_stats().spr_moves);
       if (run_stats_enabled()) {
         const RegraftCount exact_gain =
@@ -374,6 +449,7 @@ bool refine_spr(SolverContext& ctx, SolverTree& tree,
       }
       ++moves;
     }
+    checkpoint_record_spr_round_end(checkpoint_invocation, round);
     if (moves == 0) break;
     changed = true;
     refine_nni(ctx, tree, taxa);

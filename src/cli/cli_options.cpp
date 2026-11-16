@@ -107,6 +107,31 @@ const std::vector<OptionSpec>& option_table() {
        [](CliState& s, const std::string& v) {
          set_extended(s.options, v == "extended");
        }},
+      {"--checkpoint", nullptr, "PATH", nullptr, "Run", kInfer, false,
+       "journal completed decisions to PATH (rewritten at most every "
+       "--checkpoint-interval seconds), so a cut run can --resume",
+       [](CliState& s, const std::string& v) {
+         s.options.checkpoint_path = v;
+       }},
+      {"--resume", nullptr, nullptr, nullptr, "Run", kInfer, false,
+       "continue the run journaled at --checkpoint, with the same input and "
+       "options; the tree equals an uninterrupted run's",
+       [](CliState& s, const std::string&) { s.options.resume = true; }},
+      {"--checkpoint-interval", nullptr, "SECONDS", nullptr, "Run", kInfer,
+       false, "least time between journal writes (default 1800)",
+       [](CliState& s, const std::string& v) {
+         s.options.checkpoint_interval_s =
+             parse_double("--checkpoint-interval", v);
+       }},
+      {"--progress-file", nullptr, "PATH", nullptr, "Run", kInfer, false,
+       "write a small JSON status (stage, counters, memory, journal) to PATH "
+       "every --progress-interval seconds",
+       [](CliState& s, const std::string& v) { s.options.progress_file = v; }},
+      {"--progress-interval", nullptr, "SECONDS", nullptr, "Run", kInfer,
+       false, "time between status writes (default 30)",
+       [](CliState& s, const std::string& v) {
+         s.options.progress_interval_s = parse_double("--progress-interval", v);
+       }},
       {"--progress", nullptr, nullptr, nullptr, "Run", kRun, false,
        "report progress on standard error (default when it is a terminal)",
        [](CliState& s, const std::string&) {

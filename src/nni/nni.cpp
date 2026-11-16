@@ -1,4 +1,5 @@
 #include "solver/solver.hpp"
+#include "checkpoint/checkpoint.hpp"
 #include "core/selection.hpp"
 #include "counting/count.hpp"
 #include "genes/gene_lca.hpp"
@@ -1900,6 +1901,8 @@ void refine_nni(SolverContext& ctx,
                         SolverTree& tree,
                         const std::vector<int>& active_taxa) {
   if (!ctx.options.nni) return;
+  const int checkpoint_invocation = checkpoint_next_invocation('N');
+  checkpoint_note_stage(RunStage::Nni);
   const double min_gain = nni_min_gain(ctx);
   const double max_support_drop =
       kNniMaxSupportDropPerGene * nni_gene_count(ctx);
@@ -1921,19 +1924,40 @@ void refine_nni(SolverContext& ctx,
   progress_note_nni("init", 0, progress_cap, progress_edges(), 0.0,
                         min_gain);
 
-  ScoredNniData scored = score_nni_edges(ctx, tree, active_taxa);
-  std::vector<CachedNniMove> cache;
-  cache.reserve(checked_doubled_capacity(
-      scored.proposals.size(), false,
-      "NNI move cache exceeds the addressable size domain"));
-  add_cached_positive_moves(scored, cache, min_gain);
-
   int moves = 0;
   double accepted_gain = 0.0;
   // The moves' integer gains, summed exactly over the run's NNI passes (the
   // SPR refinement runs NNI again after each round that moves).
   WideCount exact_gain =
       run_stats_enabled() ? run_stats().nni_gain : WideCount{};
+  // Journaled moves are replayed first; the scores below are then those of
+  // the replayed tree. The gains are integers, so a full scoring pass gives
+  // the cache the original run built pass by pass.
+  if (const auto* groups = checkpoint_nni_groups(checkpoint_invocation)) {
+    for (const std::vector<NniMove>& group : *groups) {
+      for (const NniMove& move : group) {
+        if (!apply_nni_move(tree, move)) {
+          throw std::logic_error(
+              "checkpoint replay: a journaled NNI move does not apply");
+        }
+        if (support_gate != nullptr) support_gate->applied(tree, move);
+        ++moves;
+        accepted_gain += move.gain;
+        wide_add(exact_gain, move.gain);
+        stats_add(run_stats().nni_moves_accepted);
+      }
+      checkpoint_note_replayed();
+    }
+  }
+
+  std::vector<CachedNniMove> cache;
+  if (moves < max_moves) {
+    ScoredNniData scored = score_nni_edges(ctx, tree, active_taxa);
+    cache.reserve(checked_doubled_capacity(
+        scored.proposals.size(), false,
+        "NNI move cache exceeds the addressable size domain"));
+    add_cached_positive_moves(scored, cache, min_gain);
+  }
   if (ctx.options.nni_batch) {
     while (moves < max_moves) {
       std::vector<NniMove> batch = select_nni_batch(
@@ -1941,6 +1965,7 @@ void refine_nni(SolverContext& ctx,
       if (batch.empty()) break;
       keep_largest_nni_gains(batch, static_cast<std::size_t>(max_moves - moves));
       std::vector<uint64_t> affected;
+      std::vector<NniMove> applied;
       for (const NniMove& move : batch) {
         const std::vector<int> seeds = nni_touched_nodes(move);
         merge_edge_key_sets(affected,
@@ -1953,7 +1978,9 @@ void refine_nni(SolverContext& ctx,
         stats_add(run_stats().nni_moves_accepted);
         merge_edge_key_sets(affected,
                             collect_affected_nni_edge_keys(tree, seeds, 2));
+        if (checkpoint_invocation >= 0) applied.push_back(move);
       }
+      checkpoint_record_nni_group(checkpoint_invocation, applied);
       stats_add(run_stats().nni_batch_passes);
       // A local pass collapses each gene around every affected edge, so above
       // a quarter of the edges a full pass is cheaper; the scores, and so the
@@ -2010,6 +2037,9 @@ void refine_nni(SolverContext& ctx,
       accepted_gain += move.gain;
       wide_add(exact_gain, move.gain);
       stats_add(run_stats().nni_moves_accepted);
+      if (checkpoint_invocation >= 0) {
+        checkpoint_record_nni_group(checkpoint_invocation, {move});
+      }
       merge_edge_key_sets(affected, collect_affected_nni_edge_keys(tree, seeds, 2));
       erase_cached_nni_edges(cache, tree, affected);
       if (moves < max_moves) {

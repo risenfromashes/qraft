@@ -1,4 +1,5 @@
 #include "internal.hpp"
+#include "checkpoint/checkpoint.hpp"
 #include "divide/bipartition_test.hpp"
 
 #include <algorithm>
@@ -46,7 +47,8 @@ int requested_worker_count(const Options& options, int worker_cap) {
 
 bool requires_exclusive_inference_run(const Options& options) {
   return options.progress != ProgressMode::Off ||
-         !options.stats_json.empty();
+         !options.stats_json.empty() || !options.checkpoint_path.empty() ||
+         !options.progress_file.empty();
 }
 
 /// Admits one inference run to the shared executor. A run with progress not
@@ -551,6 +553,10 @@ SpeciesTree infer_species_tree(std::vector<GeneTree> genes, const Options& optio
   }
   internal::progress_startup_status(
       run_options, "index", startup_settings + " indexing gene trees");
+  // A journaling run identifies its input by the parsed gene trees.
+  const uint64_t genes_hash = run_options.checkpoint_path.empty()
+                                  ? 0
+                                  : internal::checkpoint_genes_hash(genes);
   ctx.genes.resize(genes.size());
   const auto index_started = std::chrono::steady_clock::now();
   internal::parallel_for_inner(
@@ -570,6 +576,14 @@ SpeciesTree infer_species_tree(std::vector<GeneTree> genes, const Options& optio
       std::chrono::duration_cast<std::chrono::nanoseconds>(
           std::chrono::steady_clock::now() - index_started));
 
+  // The journal and status file start once the input is indexed: a resumed
+  // run must match the journal's input and options.
+  internal::ScopedCheckpointRun checkpoint_run(
+      run_options,
+      internal::checkpoint_input_fingerprint(run_options, ctx.taxa,
+                                             ctx.genes.size(), physical_nodes,
+                                             genes_hash));
+  internal::checkpoint_note_stage(internal::RunStage::StartingTree);
   internal::progress_startup_status(
       run_options, "starting-tree",
       startup_settings + " building MRE");
@@ -659,9 +673,11 @@ SpeciesTree infer_species_tree(std::vector<GeneTree> genes, const Options& optio
   internal::get_executor().run(solve_flow).get();
   progress_finish.finish();
   // Support is counted on the final tree, before the statistics are written.
+  internal::checkpoint_note_stage(internal::RunStage::Support);
   SpeciesTree species =
       internal::to_species(solved, internal::context_taxa(ctx), &ctx);
   internal::write_stats_json(run_options, ctx);
+  checkpoint_run.finish();
   return species;
 }
 

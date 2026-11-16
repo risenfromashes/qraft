@@ -83,6 +83,7 @@ target_include_directories(Taskflow BEFORE INTERFACE
 find_package(Threads REQUIRED)
 
 set(QRAFT_SOURCES
+  src/checkpoint/checkpoint.cpp
   src/core/bitset.cpp
   src/core/newick.cpp
   src/core/taxa.cpp
@@ -382,6 +383,15 @@ if(QRAFT_BUILD_TESTS)
   set_tests_properties(qraft.cli_front PROPERTIES
     LABELS "regression;dispatch" TIMEOUT 600)
 
+  add_test(
+    NAME qraft.cli_checkpoint
+    COMMAND ${CMAKE_COMMAND}
+            -DQRAFT_CLI=$<TARGET_FILE:qraft>
+            -DQRAFT_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}
+            -DQRAFT_CLI_TEST_DIR=${CMAKE_CURRENT_BINARY_DIR}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cli_checkpoint.cmake)
+  set_tests_properties(qraft.cli_checkpoint PROPERTIES
+    LABELS "regression;determinism;dispatch" TIMEOUT 900)
   add_test(
     NAME qraft.cli_ablations
     COMMAND ${CMAKE_COMMAND}

@@ -147,6 +147,21 @@ qraft -i genes.tre -o out.tre --starting-tree divided.tre --no-divide --extended
 
 `qraft help ablations` says which run each other option goes to.
 
+**Long runs.** `--checkpoint PATH` keeps a journal of the decisions the run
+has finished (each bipartition, regraft, NNI move and SPR candidate). It is
+written whole, to a temporary file that is flushed and renamed, at most every
+30 minutes (`--checkpoint-interval SECONDS`) and at the end. After a crash or
+power cut, run the same command with `--resume`: the journaled decisions are
+replayed without scoring and the run goes on, giving the same tree as an
+uninterrupted run. Work that was in progress at the cut is redone.
+`--progress-file PATH` writes a small JSON status (stage, counters, memory,
+journal) every 30 seconds (`--progress-interval SECONDS`).
+
+```bash
+qraft -i genes.tre -o out.tre --extended --checkpoint out.journal --progress-file out.status.json
+qraft -i genes.tre -o out.tre --extended --checkpoint out.journal --resume   # after a cut
+```
+
 Progress and a run summary go to standard error on a terminal; `-q` prints
 errors only and `-v` prints the summary in scripts too. `--stats-json PATH`
 writes the options, the version and run statistics. Exit status: 0 on
