@@ -69,6 +69,11 @@ struct CheckpointState {
   std::atomic<long long> recorded{0};
   std::atomic<long long> saved_decisions{0};
   std::atomic<long long> replayed{0};
+  // Milliseconds the last journal write took (write, fsync, rename), and the
+  // run time at which the last journaled decision was replayed.
+  std::atomic<long long> last_save_ms{0};
+  std::atomic<long long> last_replay_ms{0};
+  std::atomic<long long> journal_bytes{0};
   long long loaded_decisions = 0;
   bool resumed = false;
   std::atomic<int> stage{0};
@@ -208,6 +213,7 @@ void fsync_directory_of(const std::string& path) {
 /// over `path`, so a cut leaves either the previous journal or this one.
 void write_journal_file(CheckpointState& s,
                         const std::vector<std::string>& lines) {
+  const auto write_started = std::chrono::steady_clock::now();
   const std::string tmp = s.path + ".tmp";
   std::FILE* file = std::fopen(tmp.c_str(), "wb");
   if (file == nullptr) {
@@ -247,6 +253,17 @@ void write_journal_file(CheckpointState& s,
 #if !defined(_WIN32)
   fsync_directory_of(s.path);
 #endif
+  s.last_save_ms.store(
+      std::chrono::duration_cast<std::chrono::milliseconds>(
+          std::chrono::steady_clock::now() - write_started)
+          .count(),
+      std::memory_order_relaxed);
+  std::error_code size_error;
+  const auto bytes = std::filesystem::file_size(s.path, size_error);
+  if (!size_error) {
+    s.journal_bytes.store(static_cast<long long>(bytes),
+                          std::memory_order_relaxed);
+  }
   s.saves.store(save_number, std::memory_order_relaxed);
   s.saved_decisions.store(static_cast<long long>(lines.size()),
                           std::memory_order_relaxed);
@@ -348,6 +365,12 @@ void write_status(CheckpointState& s, const char* run_state) {
         << "\"saves\": " << s.saves.load(std::memory_order_relaxed) << ", "
         << "\"last_save_unix\": "
         << s.last_save_unix.load(std::memory_order_relaxed) << ", "
+        << "\"journal_bytes\": "
+        << s.journal_bytes.load(std::memory_order_relaxed) << ", "
+        << "\"last_save_ms\": "
+        << s.last_save_ms.load(std::memory_order_relaxed) << ", "
+        << "\"last_replay_s\": "
+        << s.last_replay_ms.load(std::memory_order_relaxed) / 1000.0 << ", "
         << "\"interval_s\": " << s.interval_s;
   }
   out << "},\n";
@@ -680,6 +703,9 @@ void open_run(CheckpointState& s, const Options& options,
   s.flush_requested = false;
   s.stop = false;
   s.saves = 0;
+  s.last_save_ms = 0;
+  s.last_replay_ms = 0;
+  s.journal_bytes = 0;
   s.recorded = 0;
   s.saved_decisions = 0;
   s.replayed = 0;
@@ -886,7 +912,16 @@ void checkpoint_record_spr_round_end(int invocation, int round) {
 }
 
 void checkpoint_note_replayed() {
-  state().replayed.fetch_add(1, std::memory_order_relaxed);
+  CheckpointState& s = state();
+  s.replayed.fetch_add(1, std::memory_order_relaxed);
+  const long long now_ms =
+      std::chrono::duration_cast<std::chrono::milliseconds>(
+          std::chrono::steady_clock::now() - s.started)
+          .count();
+  long long seen = s.last_replay_ms.load(std::memory_order_relaxed);
+  while (seen < now_ms && !s.last_replay_ms.compare_exchange_weak(
+                              seen, now_ms, std::memory_order_relaxed)) {
+  }
 }
 
 }  // namespace qraft::internal
