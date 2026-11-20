@@ -21,7 +21,17 @@ minutes.
 
 ## Install
 
-Download the file for your system from the
+### Conda
+
+QRAFT is available on [Bioconda](https://bioconda.github.io) for Linux, macOS,
+and Windows through WSL. With Bioconda set up
+([setup instructions](https://bioconda.github.io/#usage)), install it with:
+
+```bash
+conda install qraft
+```
+
+Or, without conda, download the file for your system from the
 [latest release](https://github.com/risenfromashes/qraft/releases/latest).
 
 ### Linux
