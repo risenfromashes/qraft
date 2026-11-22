@@ -2,7 +2,8 @@
 # the same tree as a plain run, and a run killed right after, or in the middle
 # of, a journal write and then resumed gives that tree too, at another thread
 # count. The kills use the test hooks QRAFT_CHECKPOINT_TEST_KILL_AFTER and
-# QRAFT_CHECKPOINT_TEST_KILL_MID, which end the process like kill -9.
+# QRAFT_CHECKPOINT_TEST_KILL_MID, which end the process like kill -9. A due
+# journal write is not held back by a long step.
 
 if(NOT DEFINED QRAFT_CLI OR NOT DEFINED QRAFT_SOURCE_DIR OR
    NOT DEFINED QRAFT_CLI_TEST_DIR)
@@ -73,6 +74,25 @@ foreach(mode default extended)
     endforeach()
   endforeach()
 endforeach()
+
+# A long step does not hold back a due write. The run sleeps 60 s after its
+# first decision (test hooks QRAFT_CHECKPOINT_TEST_STALL_AFTER and _MS), like
+# a long step; with a 3 s interval the journal is written during the sleep,
+# holding exactly that one decision, and the kill after that write ends the
+# run there. The resumed run gives the uninterrupted tree.
+set(journal "${output_dir}/stall.journal")
+run_qraft("stall cut" FALSE
+          "QRAFT_CHECKPOINT_TEST_STALL_AFTER=1;QRAFT_CHECKPOINT_TEST_STALL_MS=60000;QRAFT_CHECKPOINT_TEST_KILL_AFTER=1"
+          --threads 4 --out "${output_dir}/stall-cut.tre"
+          --checkpoint "${journal}" --checkpoint-interval 3)
+file(STRINGS "${journal}" end_line REGEX "^END ")
+if(NOT end_line MATCHES "^END 1 ")
+  message(FATAL_ERROR
+    "the journal write waited for the long step: first journal has '${end_line}'")
+endif()
+run_qraft("stall resume" TRUE "" --threads 2 --out "${output_dir}/stall.tre"
+          --checkpoint "${journal}" --resume)
+expect_same_tree("stall" "${output_dir}/stall.tre" "${output_dir}/default-ref.tre")
 
 # A journal is not overwritten without --resume, and a journal of other
 # options is refused.

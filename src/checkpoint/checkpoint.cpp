@@ -1,5 +1,6 @@
 #include "checkpoint/checkpoint.hpp"
 
+#include <algorithm>
 #include <atomic>
 #include <bit>
 #include <chrono>
@@ -85,8 +86,13 @@ struct CheckpointState {
   // Test hooks: QRAFT_CHECKPOINT_TEST_KILL_AFTER=N kills the process after its
   // N-th journal write, QRAFT_CHECKPOINT_TEST_KILL_MID=N during it (after the
   // temporary file is complete, before the rename).
+  // QRAFT_CHECKPOINT_TEST_STALL_AFTER=N with QRAFT_CHECKPOINT_TEST_STALL_MS=M
+  // makes the run sleep M ms after recording its N-th decision, like a long
+  // step.
   long long kill_after = 0;
   long long kill_mid = 0;
+  long long stall_after = 0;
+  long long stall_ms = 0;
 
   std::map<std::pair<int, uint64_t>, SplitEntry> splits;
   std::map<std::pair<int, uint64_t>, std::array<int, 4>> regrafts;
@@ -390,18 +396,33 @@ void write_status(CheckpointState& s, const char* run_state) {
   std::filesystem::rename(tmp, s.progress_file, error);
 }
 
+/// A clock period of `seconds`, at most about 31 years, so that adding it to
+/// a time point cannot overflow.
+std::chrono::steady_clock::duration clock_period(double seconds) {
+  return std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+      std::chrono::duration<double>(std::min(seconds, 1e9)));
+}
+
+/// Writes the journal and the status file on their own clocks. The journal is
+/// written once the interval has passed since the last write and some
+/// finished decision is unwritten, also while a long step is still running;
+/// the status file every progress interval, also between back-to-back
+/// journal writes.
 void monitor_loop(CheckpointState& s) {
+  using Clock = std::chrono::steady_clock;
   std::unique_lock<std::mutex> lock(s.mutex);
-  auto next_status = std::chrono::steady_clock::now();
-  const auto status_period = std::chrono::duration_cast<
-      std::chrono::steady_clock::duration>(
-      std::chrono::duration<double>(s.progress_interval_s));
+  auto next_status = Clock::now();
+  const auto status_period = clock_period(s.progress_interval_s);
+  const auto save_period = clock_period(s.interval_s);
   while (!s.stop) {
-    if (s.flush_requested) {
+    auto now = Clock::now();
+    const bool save_due = s.journaling && !s.pending.empty() &&
+                          now - s.last_save >= save_period;
+    if (s.flush_requested || save_due) {
       flush_locked(s, lock);
-      continue;
+      if (s.stop) break;
+      now = Clock::now();
     }
-    const auto now = std::chrono::steady_clock::now();
     if (!s.progress_file.empty() && now >= next_status) {
       lock.unlock();
       write_status(s, "running");
@@ -409,29 +430,51 @@ void monitor_loop(CheckpointState& s) {
       next_status = now + status_period;
       continue;
     }
-    if (s.progress_file.empty()) {
-      s.wake.wait(lock, [&] { return s.stop || s.flush_requested; });
+    // Sleep until the status is due, or the journal is due if a decision is
+    // waiting. With nothing waiting, record_line wakes this thread when the
+    // first decision arrives.
+    const bool waiting = s.journaling && !s.pending.empty();
+    bool has_deadline = !s.progress_file.empty();
+    Clock::time_point deadline = next_status;
+    if (waiting) {
+      const Clock::time_point save_at = s.last_save + save_period;
+      if (!has_deadline || save_at < deadline) deadline = save_at;
+      has_deadline = true;
+    }
+    const auto woken = [&] {
+      return s.stop || s.flush_requested ||
+             (!waiting && s.journaling && !s.pending.empty());
+    };
+    if (has_deadline) {
+      s.wake.wait_until(lock, deadline, woken);
     } else {
-      s.wake.wait_until(lock, next_status,
-                        [&] { return s.stop || s.flush_requested; });
+      s.wake.wait(lock, woken);
     }
   }
 }
 
 void record_line(std::string line) {
   CheckpointState& s = state();
-  std::lock_guard<std::mutex> lock(s.mutex);
-  s.pending.push_back(std::move(line));
-  s.recorded.fetch_add(1, std::memory_order_relaxed);
-  if (!s.flush_requested) {
-    const double since =
-        std::chrono::duration<double>(std::chrono::steady_clock::now() -
-                                      s.last_save)
-            .count();
-    if (since >= s.interval_s) {
-      s.flush_requested = true;
-      s.wake.notify_one();
+  long long number = 0;
+  {
+    std::lock_guard<std::mutex> lock(s.mutex);
+    s.pending.push_back(std::move(line));
+    number = s.recorded.fetch_add(1, std::memory_order_relaxed) + 1;
+    // The first unwritten decision starts the monitor's save clock.
+    if (s.pending.size() == 1) s.wake.notify_one();
+    if (!s.flush_requested) {
+      const double since =
+          std::chrono::duration<double>(std::chrono::steady_clock::now() -
+                                        s.last_save)
+              .count();
+      if (since >= s.interval_s) {
+        s.flush_requested = true;
+        s.wake.notify_one();
+      }
     }
+  }
+  if (s.stall_after > 0 && number == s.stall_after) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(s.stall_ms));
   }
 }
 
@@ -720,6 +763,8 @@ void open_run(CheckpointState& s, const Options& options,
   s.spr.clear();
   s.kill_after = env_count("QRAFT_CHECKPOINT_TEST_KILL_AFTER");
   s.kill_mid = env_count("QRAFT_CHECKPOINT_TEST_KILL_MID");
+  s.stall_after = env_count("QRAFT_CHECKPOINT_TEST_STALL_AFTER");
+  s.stall_ms = env_count("QRAFT_CHECKPOINT_TEST_STALL_MS");
   if (s.journaling) {
     std::error_code error;
     const bool exists = std::filesystem::exists(s.path, error);

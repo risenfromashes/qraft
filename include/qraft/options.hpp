@@ -125,9 +125,10 @@ struct Options {
   /// Journal of completed decisions, when set: the bipartition and regraft
   /// of each finished subproblem, the NNI moves after each scoring pass and
   /// the outcome of each SPR candidate. It is rewritten whole (temporary
-  /// file, fsync, rename) at the first completed decision once
-  /// checkpoint_interval_s seconds have passed since the last write, and at
-  /// the end of the run. Unfinished work is never written.
+  /// file, fsync, rename) once checkpoint_interval_s seconds have passed
+  /// since the last write and a completed decision is unwritten, also while
+  /// a long step is still running, and at the end of the run. Unfinished
+  /// work is never written.
   std::string checkpoint_path;
   /// Continues the run journaled at checkpoint_path: its decisions are
   /// replayed without scoring, then the run goes on. The tree equals that of
