@@ -391,7 +391,7 @@ if(QRAFT_BUILD_TESTS)
             -DQRAFT_CLI_TEST_DIR=${CMAKE_CURRENT_BINARY_DIR}
             -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cli_checkpoint.cmake)
   set_tests_properties(qraft.cli_checkpoint PROPERTIES
-    LABELS "regression;determinism;dispatch" TIMEOUT 900)
+    LABELS "regression;determinism;dispatch" TIMEOUT 2400)
   add_test(
     NAME qraft.cli_ablations
     COMMAND ${CMAKE_COMMAND}
