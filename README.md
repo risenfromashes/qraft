@@ -153,7 +153,8 @@ written whole, to a temporary file that is flushed and renamed, at most every
 30 minutes (`--checkpoint-interval SECONDS`) and at the end. After a crash or
 power cut, run the same command with `--resume`: the journaled decisions are
 replayed without scoring and the run goes on, giving the same tree as an
-uninterrupted run. Work that was in progress at the cut is redone.
+uninterrupted run. Work that was in progress at the cut is redone, and an NNI
+pass that was cut runs again from its start.
 `--progress-file PATH` writes a small JSON status (stage, counters, memory,
 journal) every 30 seconds (`--progress-interval SECONDS`).
 

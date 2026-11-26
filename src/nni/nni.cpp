@@ -1912,17 +1912,10 @@ void refine_nni(SolverContext& ctx,
   const int progress_cap = ctx.options.nni_move_cap ? kNniMaxMoves : 0;
   const auto started = std::chrono::steady_clock::now();
   progress_note_stage("nni");
-  std::unique_ptr<NniExactSupport> support_gate;
-  if (ctx.options.nni_support_gate) {
-    support_gate = std::make_unique<NniExactSupport>(ctx);
-    support_gate->attach(tree);
-  }
   const auto progress_edges = []() {
     return run_stats().nni_edges_scored.load(
         std::memory_order_relaxed);
   };
-  progress_note_nni("init", 0, progress_cap, progress_edges(), 0.0,
-                        min_gain);
 
   int moves = 0;
   double accepted_gain = 0.0;
@@ -1930,25 +1923,49 @@ void refine_nni(SolverContext& ctx,
   // SPR refinement runs NNI again after each round that moves).
   WideCount exact_gain =
       run_stats_enabled() ? run_stats().nni_gain : WideCount{};
-  // Journaled moves are replayed first; the scores below are then those of
-  // the replayed tree. The gains are integers, so a full scoring pass gives
-  // the cache the original run built pass by pass.
-  if (const auto* groups = checkpoint_nni_groups(checkpoint_invocation)) {
-    for (const std::vector<NniMove>& group : *groups) {
-      for (const NniMove& move : group) {
-        if (!apply_nni_move(tree, move)) {
-          throw std::logic_error(
-              "checkpoint replay: a journaled NNI move does not apply");
+  const auto finish = [&] {
+    progress_note_nni("done", moves, progress_cap, progress_edges(),
+                      accepted_gain, min_gain);
+    stats_set_nni_gain(exact_gain);
+    stats_add_time(run_stats().nni_ns,
+                   std::chrono::duration_cast<std::chrono::nanoseconds>(
+                       std::chrono::steady_clock::now() - started));
+  };
+  // An invocation the journal finished is replayed move by move and not
+  // rescored, which leaves the tree the uninterrupted run left. One the
+  // journal holds without its end was cut: its moves were dropped when the
+  // journal was read, and it runs again from its start below, because a
+  // replay would rescore the moved tree in one full pass where the
+  // uninterrupted run kept local rescores in its cache, and above 2^53 the
+  // two can differ in the last bits.
+  if (checkpoint_nni_finished(checkpoint_invocation)) {
+    if (const auto* groups = checkpoint_nni_groups(checkpoint_invocation)) {
+      for (const std::vector<NniMove>& group : *groups) {
+        for (const NniMove& move : group) {
+          if (!apply_nni_move(tree, move)) {
+            throw std::logic_error(
+                "checkpoint replay: a journaled NNI move does not apply");
+          }
+          ++moves;
+          accepted_gain += move.gain;
+          wide_add(exact_gain, move.gain);
+          stats_add(run_stats().nni_moves_accepted);
         }
-        if (support_gate != nullptr) support_gate->applied(tree, move);
-        ++moves;
-        accepted_gain += move.gain;
-        wide_add(exact_gain, move.gain);
-        stats_add(run_stats().nni_moves_accepted);
+        checkpoint_note_replayed();
       }
-      checkpoint_note_replayed();
     }
+    checkpoint_note_replayed();
+    finish();
+    return;
   }
+
+  std::unique_ptr<NniExactSupport> support_gate;
+  if (ctx.options.nni_support_gate) {
+    support_gate = std::make_unique<NniExactSupport>(ctx);
+    support_gate->attach(tree);
+  }
+  progress_note_nni("init", 0, progress_cap, progress_edges(), 0.0,
+                        min_gain);
 
   std::vector<CachedNniMove> cache;
   if (moves < max_moves) {
@@ -2051,12 +2068,8 @@ void refine_nni(SolverContext& ctx,
                             accepted_gain, min_gain);
     }
   }
-  progress_note_nni("done", moves, progress_cap, progress_edges(),
-                        accepted_gain, min_gain);
-  stats_set_nni_gain(exact_gain);
-  stats_add_time(run_stats().nni_ns,
-                      std::chrono::duration_cast<std::chrono::nanoseconds>(
-                          std::chrono::steady_clock::now() - started));
+  checkpoint_record_nni_end(checkpoint_invocation);
+  finish();
 }
 
 std::vector<BranchQuartetFrequencies> branch_quartet_frequencies(

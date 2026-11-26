@@ -14,6 +14,7 @@
 #include <iostream>
 #include <map>
 #include <mutex>
+#include <set>
 #include <sstream>
 #include <stdexcept>
 #include <thread>
@@ -30,7 +31,7 @@
 namespace qraft::internal {
 namespace {
 
-constexpr const char* kMagic = "QRAFT-CHECKPOINT 1";
+constexpr const char* kMagic = "QRAFT-CHECKPOINT 2";
 
 /// A journaled bipartition: the positions, among the subproblem's ascending
 /// taxa, of its smaller side, and whether that side is the left one.
@@ -46,6 +47,8 @@ struct SplitEntry {
 struct CheckpointState {
   std::mutex mutex;
   std::condition_variable wake;
+  // Notified after each journal write.
+  std::condition_variable saved;
   bool active = false;
   bool journaling = false;
   bool finished = false;
@@ -88,15 +91,19 @@ struct CheckpointState {
   // temporary file is complete, before the rename).
   // QRAFT_CHECKPOINT_TEST_STALL_AFTER=N with QRAFT_CHECKPOINT_TEST_STALL_MS=M
   // makes the run sleep M ms after recording its N-th decision, like a long
-  // step.
+  // step. With a kill hook and --checkpoint-interval 0, each decision waits
+  // until a journal write holds it, so that while one thread records, the
+  // N-th write is the one that adds the N-th decision.
   long long kill_after = 0;
   long long kill_mid = 0;
   long long stall_after = 0;
   long long stall_ms = 0;
+  bool sync_writes = false;
 
   std::map<std::pair<int, uint64_t>, SplitEntry> splits;
   std::map<std::pair<int, uint64_t>, std::array<int, 4>> regrafts;
   std::map<int, std::vector<std::vector<NniMove>>> nni;
+  std::set<int> nni_finished;
   std::map<std::pair<int, int>, SprRoundLog> spr;
 };
 
@@ -299,6 +306,7 @@ void flush_locked(CheckpointState& s, std::unique_lock<std::mutex>& lock) {
   lock.lock();
   s.last_save = std::chrono::steady_clock::now();
   s.flush_requested = false;
+  s.saved.notify_all();
 }
 
 long long read_rss_bytes(long long* peak) {
@@ -473,6 +481,14 @@ void record_line(std::string line) {
       }
     }
   }
+  if (s.sync_writes) {
+    std::unique_lock<std::mutex> lock(s.mutex);
+    const long long target = s.loaded_decisions + number;
+    s.saved.wait(lock, [&] {
+      return s.stop || s.write_failed ||
+             s.saved_decisions.load(std::memory_order_relaxed) >= target;
+    });
+  }
   if (s.stall_after > 0 && number == s.stall_after) {
     std::this_thread::sleep_for(std::chrono::milliseconds(s.stall_ms));
   }
@@ -555,7 +571,10 @@ void load_journal(CheckpointState& s) {
   }
   if (!ended) bad_journal(s.path, "it has no END line");
 
-  for (const std::string& record : lines) {
+  // The NNI invocation of each record, or -1 for other records.
+  std::vector<int> nni_of(lines.size(), -1);
+  for (std::size_t index = 0; index < lines.size(); ++index) {
+    const std::string& record = lines[index];
     std::istringstream fields(record);
     char kind = 0;
     fields >> kind;
@@ -590,8 +609,17 @@ void load_journal(CheckpointState& s) {
             move.swap_b_neighbor >> move.alternative >> gain_bits;
         move.gain = std::bit_cast<double>(gain_bits);
       }
-      if (!fields) bad_journal(s.path, "an NNI record is malformed");
+      if (!fields || inv < 0 || s.nni_finished.count(inv) != 0) {
+        bad_journal(s.path, "an NNI record is malformed or out of order");
+      }
       s.nni[inv].push_back(std::move(group));
+      nni_of[index] = inv;
+    } else if (kind == 'M') {
+      int inv = 0;
+      fields >> inv;
+      if (!fields || inv < 0 || !s.nni_finished.insert(inv).second) {
+        bad_journal(s.path, "an NNI end record is malformed or repeated");
+      }
     } else if (kind == 'P') {
       int inv = 0, round = 0, moved = 0;
       SprOutcome outcome;
@@ -616,8 +644,24 @@ void load_journal(CheckpointState& s) {
       bad_journal(s.path, "it holds an unknown record");
     }
   }
-  s.loaded_decisions = static_cast<long long>(lines.size());
-  s.written = std::move(lines);
+  // An NNI invocation without its end record was cut. Its moves are dropped,
+  // here and from the journal, and the invocation runs again from its start:
+  // replayed, its moved tree would be rescored in one full pass, where the
+  // uninterrupted run kept local rescores in its cache, and above 2^53 the
+  // two can differ in the last bits.
+  std::vector<std::string> kept;
+  kept.reserve(lines.size());
+  for (std::size_t index = 0; index < lines.size(); ++index) {
+    if (nni_of[index] >= 0 && s.nni_finished.count(nni_of[index]) == 0) {
+      continue;
+    }
+    kept.push_back(std::move(lines[index]));
+  }
+  for (auto it = s.nni.begin(); it != s.nni.end();) {
+    it = s.nni_finished.count(it->first) == 0 ? s.nni.erase(it) : std::next(it);
+  }
+  s.loaded_decisions = static_cast<long long>(kept.size());
+  s.written = std::move(kept);
 }
 
 }  // namespace
@@ -760,11 +804,14 @@ void open_run(CheckpointState& s, const Options& options,
   s.splits.clear();
   s.regrafts.clear();
   s.nni.clear();
+  s.nni_finished.clear();
   s.spr.clear();
   s.kill_after = env_count("QRAFT_CHECKPOINT_TEST_KILL_AFTER");
   s.kill_mid = env_count("QRAFT_CHECKPOINT_TEST_KILL_MID");
   s.stall_after = env_count("QRAFT_CHECKPOINT_TEST_STALL_AFTER");
   s.stall_ms = env_count("QRAFT_CHECKPOINT_TEST_STALL_MS");
+  s.sync_writes =
+      s.interval_s <= 0 && (s.kill_after > 0 || s.kill_mid > 0);
   if (s.journaling) {
     std::error_code error;
     const bool exists = std::filesystem::exists(s.path, error);
@@ -809,6 +856,7 @@ ScopedCheckpointRun::~ScopedCheckpointRun() {
     s.stop = true;
   }
   s.wake.notify_all();
+  s.saved.notify_all();
   if (s.monitor.joinable()) s.monitor.join();
   std::unique_lock<std::mutex> lock(s.mutex);
   // Completed work is written on every exit, finished or failed.
@@ -825,6 +873,7 @@ ScopedCheckpointRun::~ScopedCheckpointRun() {
   s.splits.clear();
   s.regrafts.clear();
   s.nni.clear();
+  s.nni_finished.clear();
   s.spr.clear();
   s.written.clear();
   unlock_journal(s);
@@ -929,6 +978,16 @@ void checkpoint_record_nni_group(int invocation,
         << move.alternative << ' ' << std::bit_cast<uint64_t>(move.gain);
   }
   record_line(out.str());
+}
+
+bool checkpoint_nni_finished(int invocation) {
+  if (invocation < 0) return false;
+  return state().nni_finished.count(invocation) != 0;
+}
+
+void checkpoint_record_nni_end(int invocation) {
+  if (invocation < 0) return;
+  record_line("M " + std::to_string(invocation));
 }
 
 const SprRoundLog* checkpoint_spr_round(int invocation, int round) {

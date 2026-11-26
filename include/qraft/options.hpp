@@ -124,15 +124,17 @@ struct Options {
 
   /// Journal of completed decisions, when set: the bipartition and regraft
   /// of each finished subproblem, the NNI moves after each scoring pass and
-  /// the outcome of each SPR candidate. It is rewritten whole (temporary
-  /// file, fsync, rename) once checkpoint_interval_s seconds have passed
-  /// since the last write and a completed decision is unwritten, also while
-  /// a long step is still running, and at the end of the run. Unfinished
-  /// work is never written.
+  /// the end of each NNI invocation, and the outcome of each SPR candidate.
+  /// It is rewritten whole (temporary file, fsync, rename) once
+  /// checkpoint_interval_s seconds have passed since the last write and a
+  /// completed decision is unwritten, also while a long step is still
+  /// running, and at the end of the run. Unfinished work is never written.
   std::string checkpoint_path;
   /// Continues the run journaled at checkpoint_path: its decisions are
-  /// replayed without scoring, then the run goes on. The tree equals that of
-  /// an uninterrupted run. The options and input must match the journal's.
+  /// replayed without scoring, then the run goes on. An NNI invocation the
+  /// journal holds without its end runs again from its start. The tree
+  /// equals that of an uninterrupted run. The options and input must match
+  /// the journal's.
   bool resume = false;
   double checkpoint_interval_s = 1800.0;  ///< finite and >= 0
   /// A small JSON status (stage, counters, memory, journal) written by atomic

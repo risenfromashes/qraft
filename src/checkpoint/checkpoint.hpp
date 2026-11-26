@@ -97,10 +97,16 @@ void checkpoint_record_regraft(int invocation, uint64_t path,
                                const RegraftEdge& right);
 
 /// The journaled NNI move groups of an invocation, in order: one move per
-/// group, or one batch.
+/// group, or one batch. Only a finished invocation has them: the groups of an
+/// invocation the journal holds without its end are dropped when the journal
+/// is read, and that invocation runs again from its start.
 const std::vector<std::vector<NniMove>>* checkpoint_nni_groups(int invocation);
 void checkpoint_record_nni_group(int invocation,
                                  const std::vector<NniMove>& group);
+/// Whether the journal holds the end of NNI invocation `invocation`; and the
+/// record of that end, written once the invocation has applied its last move.
+bool checkpoint_nni_finished(int invocation);
+void checkpoint_record_nni_end(int invocation);
 
 /// The journaled outcomes of an SPR round, if any.
 const SprRoundLog* checkpoint_spr_round(int invocation, int round);
